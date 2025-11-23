@@ -139,41 +139,11 @@ namespace BoundingSphere
 open Bornology ENNReal Metric
 variable {d : ℕ} (S : Set (EuclideanSpace ℝ (Fin d)))
 
-noncomputable def eradius := sInf (Set.range (supEDist S))
-
 noncomputable def radius := sInf (Set.range (supDist S))
 
 theorem radius_empty : radius (∅ : Set (EuclideanSpace ℝ (Fin d))) = 0 := by
   unfold radius supDist supEDist
   simp
-
-theorem eradius_eq_radius_of_isBounded (h1 : IsBounded S) :
-    eradius S = ENNReal.ofReal (radius S) := by
-  unfold eradius radius
-  obtain h0 | h0 := S.eq_empty_or_nonempty
-  · unfold supDist supEDist
-    simp [h0]
-  calc
-  _ = ENNReal.ofReal (sInf (Set.range (supEDist S))).toReal := by
-    rw [ofReal_toReal]
-    by_contra! h2
-    rw [sInf_eq_top] at h2
-    contrapose! h2
-    let s0 := h0.choose
-    use supEDist S s0, by simp, supEDist_ne_top_of_isBounded S s0 h1
-  _ = ENNReal.ofReal (sInf (ENNReal.toReal '' Set.range (supEDist S))) := by
-    rw [toReal_sInf]
-    intro y ⟨x, hx⟩
-    subst hx
-    apply supEDist_ne_top_of_isBounded S x h1
-  _ = ENNReal.ofReal (sInf (Set.range (ENNReal.toReal ∘ supEDist S))) := by rw [Set.range_comp]
-
-theorem eradius_eq_top_of_not_isBounded (h1 : ¬IsBounded S) : eradius S = ⊤ := by
-  unfold eradius
-  rw [sInf_eq_top]
-  intro _ ⟨x, hx⟩
-  subst hx
-  exact supEDist_eq_top_of_not_isBounded S x h1
 
 theorem radius_mem_of_isBounded (h1 : IsBounded S) :
     radius S ∈ Set.range (supDist S) := by
@@ -300,39 +270,45 @@ theorem radius_nonneg : radius S ≥ 0 := by
   subst hx
   simp [supDist]
 
-theorem eradius_eq_supEDist_center : eradius S = supEDist S (center S) := by
-  by_cases h1 : IsBounded S
-  · rw [supEDist_eq_supDist_of_isBounded S _ h1]
-    rw [eradius_eq_radius_of_isBounded S h1]
-    rw [radius_eq_supDist_center_of_isBounded S h1]
-  · rw [eradius_eq_top_of_not_isBounded S h1]
-    rw [supEDist_eq_top_of_not_isBounded S _ h1]
 
-theorem subset_of_isBounded (h1 : IsBounded S) : S ⊆ closedBall (center S) (radius S) := by
-  intro s hs
-  rw [mem_closedBall]
-  rw [←edist_le_ofReal (radius_nonneg S)]
-  rw [←eradius_eq_radius_of_isBounded S h1]
-  rw [eradius_eq_supEDist_center]
-  unfold supEDist
-  rw [le_sSup_iff]
-  intro b hb
-  simp [upperBounds] at hb
-  exact hb s hs
+
+theorem ofReal_radius_eq_of_isBounded (h1 : IsBounded S) :
+    ENNReal.ofReal (radius S) = sInf (Set.range (supEDist S)) := by
+  symm
+  unfold radius
+  obtain h0 | h0 := S.eq_empty_or_nonempty
+  · unfold supDist supEDist
+    simp [h0]
+  calc
+  _ = ENNReal.ofReal (sInf (Set.range (supEDist S))).toReal := by
+    rw [ofReal_toReal]
+    by_contra! h2
+    rw [sInf_eq_top] at h2
+    contrapose! h2
+    let s0 := h0.choose
+    use supEDist S s0, by simp, supEDist_ne_top_of_isBounded S s0 h1
+  _ = ENNReal.ofReal (sInf (ENNReal.toReal '' Set.range (supEDist S))) := by
+    rw [toReal_sInf]
+    intro y ⟨x, hx⟩
+    subst hx
+    apply supEDist_ne_top_of_isBounded S x h1
+  _ = ENNReal.ofReal (sInf (Set.range (ENNReal.toReal ∘ supEDist S))) := by rw [Set.range_comp]
 
 def IsMinimal c r := S ⊆ closedBall c r ∧ ∀ c', ∀ r', S ⊆ closedBall c' r' → r ≤ r'
 
-theorem IsMinimal.of_isBounded_nonempty (h1 : IsBounded S) (h0 : S.Nonempty) :
+theorem IsMinimal.of_isBounded (h1 : IsBounded S) (h0 : S.Nonempty) :
     IsMinimal S (center S) (radius S) := by
   split_ands
-  · apply subset_of_isBounded S h1
+  · intro s hs
+    rw [mem_closedBall]
+    rw [radius_eq_supDist_center_of_isBounded S h1]
+    exact dist_le_supDist S h1 (center S) s hs
   · intro c' r' h2
     have hr' := calc
         r' ≥ dist h0.choose c' := by simpa [mem_closedBall] using h2 h0.choose_spec
         _ ≥ 0 := by apply dist_nonneg
     rw [←ofReal_le_ofReal_iff hr']
-    rw [←eradius_eq_radius_of_isBounded S h1]
-    unfold eradius
+    rw [ofReal_radius_eq_of_isBounded S h1]
     rw [sInf_le_iff]
     intro s hs
     replace hs : ∀ x, s ≤ supEDist S x := by simpa [lowerBounds] using hs
@@ -344,13 +320,18 @@ theorem IsMinimal.of_isBounded_nonempty (h1 : IsBounded S) (h0 : S.Nonempty) :
     rw [edist_le_ofReal hr']
     exact h2 ha
 
-theorem radius_isMinimal (h1 : IsBounded S) (h0 : S.Nonempty) :
+theorem subset (h1 : IsBounded S) : S ⊆ closedBall (center S) (radius S) := by
+  by_cases h0 : S.Nonempty
+  · exact (IsMinimal.of_isBounded S h1 h0).left
+  · simp [Set.not_nonempty_iff_eq_empty.mp h0]
+
+theorem radius_le (h1 : IsBounded S) (h0 : S.Nonempty) :
     ∀ c', ∀ r', S ⊆ closedBall c' r' → radius S ≤ r' :=
-  (IsMinimal.of_isBounded_nonempty S h1 h0).right
+  (IsMinimal.of_isBounded S h1 h0).right
 
 theorem radius_pos (hS : IsBounded S) (hS2 : S.encard ≥ 2) :
     radius S > 0 := by
-  have h1 := subset_of_isBounded S hS
+  have h1 := subset S hS
   have f : Fin 2 ↪ S := by
     by_cases hS4 : S.Finite
     · have := hS4.fintype
@@ -381,18 +362,6 @@ theorem radius_pos (hS : IsBounded S) (hS2 : S.encard ≥ 2) :
     _ = 0 := by simp
 
 
-theorem eradius_image_add_right a : eradius ((· + a) '' S) = eradius S := by
-  unfold eradius
-  convert_to sInf (Set.range (supEDist S ∘ (· - a))) = _ using 3
-  · ext c
-    rw [supEDist_image_add_right, Function.comp_apply]
-  congr 1
-  apply Function.Surjective.range_comp
-  apply add_right_surjective (-a)
-
-theorem eradius_image_sub_right a : eradius ((· - a) '' S) = eradius S := by
-  convert eradius_image_add_right S (-a) using 1
-
 theorem radius_image_add_right a : radius ((· + a) '' S) = radius S := by
   unfold radius
   convert_to sInf (Set.range (supDist S ∘ (· - a))) = _ using 3
@@ -404,6 +373,7 @@ theorem radius_image_add_right a : radius ((· + a) '' S) = radius S := by
 
 theorem radius_image_sub_right a : radius ((· - a) '' S) = radius S := by
   convert radius_image_add_right S (-a) using 1
+
 
 
 theorem radius_eq_radius_of_IsMinimal
@@ -486,14 +456,14 @@ theorem center_image_add_right (h1 : IsBounded S) (h0 : S.Nonempty) a :
     intro x hx y hy
     simpa using dist_le_diam_of_mem h1 hx hy
   have h0' : T.Nonempty := by apply h0.image
-  have h3 := IsMinimal.of_isBounded_nonempty T h1' h0'
+  have h3 := IsMinimal.of_isBounded T h1' h0'
   have h4 : IsMinimal T (center S + a) (radius S) := by
     split_ands
     · simp only [T, Set.image_subset_iff, preimage_add_right_closedBall, add_sub_cancel_right]
-      exact subset_of_isBounded S h1
+      exact subset S h1
     · intro c' r' h
       simp only [T, Set.image_subset_iff, preimage_add_right_closedBall] at h
-      exact radius_isMinimal S h1 h0 (c' - a) r' h
+      exact radius_le S h1 h0 (c' - a) r' h
   exact center_eq_center_of_IsMinimal T h0' h3 h4
 
 theorem center_image_sub_right (h1 : IsBounded S) (h0 : S.Nonempty) a :
@@ -505,13 +475,13 @@ theorem radius_singleton (a : EuclideanSpace ℝ (Fin d)) : radius {a} = 0 := by
   suffices radius {a} ≤ 0 by
     apply le_antisymm this
     apply radius_nonneg
-  apply radius_isMinimal {a} isBounded_singleton (Set.singleton_nonempty a) a 0
+  apply radius_le {a} isBounded_singleton (Set.singleton_nonempty a) a 0
   simp
 
 theorem hit_at_least_once_of_finite (h1 : S.Finite) (h0 : S.Nonempty) :
     {x ∈ S | dist (center S) x = radius S}.Nonempty := by
-  have hr := radius_isMinimal S h1.isBounded h0
-  have hc := subset_of_isBounded S h1.isBounded
+  have hr := radius_le S h1.isBounded h0
+  have hc := subset S h1.isBounded
   set c := center S
   set r := radius S
   let hit := {x ∈ S | dist c x = r}
@@ -538,8 +508,8 @@ theorem center_mem_convexHull_sphere_of_finite
     apply Set.encard_ne_zero.mp
     by_contra! h1
     simp [h1] at h2
-  have h4 := subset_of_isBounded X h1.isBounded
-  have h5 := radius_isMinimal X h1.isBounded h3
+  have h4 := subset X h1.isBounded
+  have h5 := radius_le X h1.isBounded h3
   set c := center X
   set r := radius X
 
@@ -677,7 +647,7 @@ theorem center_mem_convexHull_sphere_of_finite
       rw [sq_lt_sq₀]
       · simp [Xint] at hx
         apply lt_of_le_of_ne
-        · exact subset_of_isBounded X h1.isBounded hx.left
+        · exact subset X h1.isBounded hx.left
         · have := hx.right
           contrapose! this
           simp [Xs, hx.left, this]
@@ -745,7 +715,7 @@ theorem center_mem_convexHull_sphere_of_finite
     _ = r := by
       rw [Real.sqrt_sq]
       apply radius_nonneg
-  have h14 : r ≤ r0 := radius_isMinimal X h1.isBounded h3 c0 r0 h12
+  have h14 : r ≤ r0 := radius_le X h1.isBounded h3 c0 r0 h12
   linarith only [h13, h14]
 
 
@@ -756,8 +726,8 @@ theorem hit_at_least_twice_of_finite (hS3 : S.encard ≥ 2) (hS4 : S.Finite) :
     apply Set.encard_ne_zero.mp
     by_contra! h1
     simp [h1] at hS3
-  have hr := radius_isMinimal S hS hS2
-  have hc := subset_of_isBounded S hS
+  have hr := radius_le S hS hS2
+  have hc := subset S hS
   set c := center S
   set r := radius S
   let hit := {x ∈ S | dist c x = r}
@@ -797,7 +767,7 @@ open Finset InnerProductSpace in
 /--
 Jung’s theorem in the case $$\left|S\right|\leq d+1$$.
 -/
-theorem radius_le_sqrt_of_card_le_d_succ
+theorem radius_le_sqrt_of_card_le
     (hS : IsBounded S) (hS3 : S.encard ≤ d + 1) :
     radius S ≤ √(d / (2 * d + 2) : ℝ) * diam S := by
 
@@ -863,7 +833,7 @@ theorem radius_le_sqrt_of_card_le_d_succ
       simp [T]
 
   set r := radius S
-  let h3 := subset_of_isBounded S hS
+  let h3 := subset S hS
 
   have h1' := (Set.finite_of_encard_le_coe hS3).fintype
   have h1 : S.toFinset.card ≥ 2 := by
@@ -1100,7 +1070,7 @@ open Finset in
 /--
 Jung’s theorem in the case $$\left|S\right|\geq d+1$$.
 -/
-theorem radius_le_sqrt_of_card_ge_d_succ
+theorem radius_le_sqrt_of_card_ge
     (hS : IsBounded S) (hS2 : S.encard ≥ d + 1) :
     radius S ≤ (√(d / (2 * d + 2) : ℝ) * diam S) := by
 
@@ -1111,7 +1081,7 @@ theorem radius_le_sqrt_of_card_ge_d_succ
 
   suffices ∃ c, S ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam S) by
     obtain ⟨c, hc⟩ := this
-    apply radius_isMinimal S hS hS0 c _ hc
+    apply radius_le S hS hS0 c _ hc
 
   let F (x : S) := closedBall x.val (√(d / (2 * d + 2) : ℝ) * diam S)
 
@@ -1134,12 +1104,12 @@ theorem radius_le_sqrt_of_card_ge_d_succ
     simp only [Set.iInter_coe_set, Set.nonempty_iInter, Set.mem_iInter]
     set c := center (Subtype.val '' I')
     have hc : radius (Subtype.val '' I') ≤ _ :=
-      radius_le_sqrt_of_card_le_d_succ (Subtype.val '' I')
+      radius_le_sqrt_of_card_le (Subtype.val '' I')
         (IsBounded.subset hS (Subtype.coe_image_subset S I))
         (calc
           _ ≤ I'.encard := by apply Set.encard_image_le
           _ = _ := by simpa [I'] using ENat.coe_inj.mpr hI)
-    have hc' := subset_of_isBounded (Subtype.val '' I')
+    have hc' := subset (Subtype.val '' I')
       (IsBounded.subset hS (Subtype.coe_image_subset S I))
     rw [Set.image_subset_iff] at hc'
     use c
@@ -1159,8 +1129,8 @@ radius $$r \leq (\frac{d}{2d+2})^{\frac{1}{2}}\text{diam}(S)$$ -/
 theorem radius_le_sqrt_of_isBounded (hS : IsBounded S) :
     radius S ≤ (√(d / (2 * d + 2) : ℝ) * diam S) := by
   obtain h | h : S.encard ≤ d + 1 ∨ S.encard ≥ d + 1 := by apply le_total
-  · exact radius_le_sqrt_of_card_le_d_succ S hS h
-  · exact radius_le_sqrt_of_card_ge_d_succ S hS h
+  · exact radius_le_sqrt_of_card_le S hS h
+  · exact radius_le_sqrt_of_card_ge S hS h
 
 /-- (Jung’s theorem) Suppose $$S\subset\mathbb{R}^{d}$$ is bounded with diameter $$\text{diam}(S)$$.
 Then $S$ is contained in a closed ball of radius $$(\frac{d}{2d+2})^{\frac{1}{2}}\text{diam}(S)$$
@@ -1168,7 +1138,7 @@ Then $S$ is contained in a closed ball of radius $$(\frac{d}{2d+2})^{\frac{1}{2}
 theorem jung_theorem (hS : IsBounded S) :
     ∃ c, S ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam S) := by
   use center S
-  apply (subset_of_isBounded S hS).trans
+  apply (subset S hS).trans
   apply closedBall_subset_closedBall
   exact radius_le_sqrt_of_isBounded S hS
 
