@@ -231,12 +231,12 @@ theorem radius_mem_of_isBounded (h1 : IsBounded S) :
                   simpa using this
                 rw [dist_comm]
                 have : supDist S s0 ≥ 0 := by unfold supDist; simp
-                linarith
+                linarith only [hc2, this]
               · apply edist_ne_top
             _ = dist c s0 - supDist S s0 := by
               congr 1
               simp [edist_dist]
-            _ ≥ _ := by linarith
+            _ ≥ _ := by linarith only [hc2]
 
   apply IsCompact.sInf_mem
   · apply IsCompact.image_of_continuousOn
@@ -255,10 +255,10 @@ theorem radius_mem_of_isBounded (h1 : IsBounded S) :
             split_ands
             · specialize this y x
               rw [dist_comm]
-              linarith
+              linarith only [this]
             · exact this x y
           intro x y
-          suffices supDist S x ≤ supDist S y + dist x y by linarith
+          suffices supDist S x ≤ supDist S y + dist x y by linarith only [this]
           calc
             supDist S x = (supEDist S x).toReal := rfl
             _ ≤ (supEDist S y + edist x y).toReal := by
@@ -471,9 +471,9 @@ theorem center_eq_center_of_IsMinimal
       calc
         0 ≤ dist s0 c ^ 2 := by apply sq_nonneg
         _ ≤ _ := h5 s0 (h1.left hs0) (h2.left hs0)
-  replace h3 : α = 0 := by nlinarith
+  replace h3 : α = 0 := by nlinarith only [h3]
   unfold α at h3
-  replace h3 : dist x y = 0 := by linarith
+  replace h3 : dist x y = 0 := by linarith only [h3]
   simpa [dist_eq_zero] using h3
 
 
@@ -527,129 +527,6 @@ theorem hit_at_least_once_of_finite (h1 : S.Finite) (h0 : S.Nonempty) :
   replace h2 : r = r' := by linarith only [h2, h3]
   have h4 : y0 ∈ hit := by simp [hit, hy0, hy0', h2, dist_comm]
   use y0
-
-theorem hit_at_least_twice_of_finite (hS3 : S.encard ≥ 2) (hS4 : S.Finite) :
-    {x ∈ S | dist (center S) x = radius S}.encard ≥ 2 := by
-  have hS : IsBounded S := hS4.isBounded
-  have hS2 : S.Nonempty := by
-    apply Set.encard_ne_zero.mp
-    by_contra! h1
-    simp [h1] at hS3
-  have hr := radius_isMinimal S hS hS2
-  have hc := subset_of_isBounded S hS
-  set c := center S
-  set r := radius S
-  let hit := {x ∈ S | dist c x = r}
-  change hit.encard ≥ 2
-  obtain h0 | h0 : ¬hit.Finite ∨ hit.Finite := by tauto
-  · rw [Set.encard_eq_top]
-    · simp
-    · simpa using h0
-  obtain h1 | h1 | h1 : hit.encard = 0 ∨ hit.encard = 1 ∨ hit.encard ≥ 2 := by
-    have := h0.fintype
-    unfold Set.encard
-    rw [ENat.card_eq_coe_natCard]
-    norm_cast
-    omega
-  · exfalso
-    -- Case where no point of S lies on the boundary of the smallest enclosing ball
-    rw [Set.encard_eq_zero] at h1
-    obtain ⟨y0, hy0, hy0'⟩ := supDist_mem_of_isFinite S c hS4 hS2
-    dsimp at hy0'
-    set r' := supDist S c
-    have h2 : r ≤ r' := by
-      apply hr c r'
-      intro s hs
-      simp only [mem_closedBall]
-      apply dist_le_supDist S hS c s hs
-    have h3 : r' ≤ r := by simpa [hy0'] using hc hy0
-    replace h2 : r = r' := by linarith only [h2, h3]
-    have h4 : y0 ∈ hit := by simp [hit, hy0, hy0', h2, dist_comm]
-    simp [h1] at h4
-  · exfalso
-    -- Case where exactly one point of S lies on the boundary of the smallest enclosing ball
-    rw [Set.encard_eq_one] at h1
-    obtain ⟨x, hx⟩ := h1
-    have hx1 : x ∈ hit := by simp [hx]
-    have hx2 : x ∈ S := hx1.left
-    have hx3 := hx1.right
-    obtain ⟨r', h2, h3⟩ : ∃ r', r' < r ∧ ∀ y ∈ S, y ≠ x → dist c y ≤ r' := by
-      obtain ⟨y0, hy0, hy0'⟩ := supDist_mem_of_isFinite (S \ {x}) c hS4.diff (by
-        have := hS4.fintype.finite
-        rw [←Set.encard_ne_zero, Set.encard_diff_singleton_of_mem hx2]
-        rw [Set.encard, ENat.card_eq_coe_natCard] at hS3 ⊢
-        norm_cast at hS3 ⊢
-        omega)
-      dsimp at hy0'
-      set r' := supDist (S \ {x}) c
-      use r'
-      split_ands
-      · by_contra! h1
-        specialize hc hy0.left
-        simp [hy0'] at hc
-        replace h1 : r = r' := by linarith
-        apply hy0.right
-        suffices y0 ∈ hit by simpa [hx] using this
-        simp [hit, hy0.left, dist_comm, hy0', h1]
-      · unfold r'
-        intro y hy hy2
-        rw [dist_comm]
-        apply dist_le_supDist
-        · exact IsBounded.subset hS Set.diff_subset
-        · simp [hy, hy2]
-    have hr_pos : r > 0 := radius_pos S hS hS3
-    obtain ⟨t, ht1, ht2, ht3⟩ : ∃ t : ℝ, t > 0 ∧ t < 1 ∧ t * (2 * r) + (1 - t) * r' < r := by
-      use (r - r') / (2 * (2 * r - r'))
-      have : r * 2 - r' > 0 := by linarith
-      split_ands
-      · field_simp
-        linarith
-      · field_simp
-        linarith
-      · field_simp
-        nlinarith
-    let c' := t • x + (1 - t) • c
-    have h4 y (hy1 : y ∈ S) (hy2 : y ≠ x) := calc
-        dist y c' = ‖y - c'‖ := rfl
-        _ = ‖t • (y - x) + (1 - t) • (y - c)‖ := by congr 1; module
-        _ ≤ ‖t • (y - x)‖ + ‖(1 - t) • (y - c)‖ := by apply norm_add_le
-        _ = ‖t‖ * ‖y - x‖ + ‖1 - t‖ * ‖y - c‖ := by rw [norm_smul, norm_smul]
-        _ = t * dist y x + (1 - t) * dist y c := by
-          congr 2 <;> (apply Real.norm_of_nonneg; linarith)
-        _ ≤ t * (2 * r) + (1 - t) * r' := by
-          gcongr 2
-          · calc
-              dist y x ≤ dist y c + dist c x := by apply dist_triangle
-              _ ≤ r + r := by
-                gcongr 1
-                · exact hc hy1
-                · exact hx3.le
-              _ = 2 * r := by ring
-          · linarith
-          · rw [dist_comm]
-            exact h3 y hy1 hy2
-    set r1 := t * (2 * r) + (1 - t) * r'
-    have h5 := calc
-      dist x c' = ‖x - c'‖ := rfl
-      _ = ‖(1 - t) • (x - c)‖ := by congr 1; module
-      _ = ‖1 - t‖ * ‖x - c‖ := by rw [norm_smul]
-      _ = (1 - t) * dist x c := by congr 1; apply Real.norm_of_nonneg; linarith
-      _ = (1 - t) * r := by rw [dist_comm]; congr 1
-    set r2 := (1 - t) * r
-    have hr2 : r2 < r := calc
-      (1 - t) * r < 1 * r := by gcongr 1; linarith
-      _ = r := by ring
-
-    have h6 : S ⊆ closedBall c' (r1 ⊔ r2) := by
-      intro y hy
-      by_cases hy1 : y = x
-      · simp [hy1, h5]
-      · simp [h4 y hy hy1]
-
-    have h7 : r1 ⊔ r2 < r := by simp [ht3, hr2]
-    specialize hr c' (r1 ⊔ r2) h6
-    linarith
-  · exact h1
 
 
 open InnerProductSpace in
@@ -872,6 +749,49 @@ theorem center_mem_convexHull_sphere_of_finite
   linarith only [h13, h14]
 
 
+theorem hit_at_least_twice_of_finite (hS3 : S.encard ≥ 2) (hS4 : S.Finite) :
+    {x ∈ S | dist (center S) x = radius S}.encard ≥ 2 := by
+  have hS : IsBounded S := hS4.isBounded
+  have hS2 : S.Nonempty := by
+    apply Set.encard_ne_zero.mp
+    by_contra! h1
+    simp [h1] at hS3
+  have hr := radius_isMinimal S hS hS2
+  have hc := subset_of_isBounded S hS
+  set c := center S
+  set r := radius S
+  let hit := {x ∈ S | dist c x = r}
+  change hit.encard ≥ 2
+  obtain h0 | h0 : ¬hit.Finite ∨ hit.Finite := by tauto
+  · rw [Set.encard_eq_top]
+    · simp
+    · simpa using h0
+  obtain h1 | h1 | h1 : hit.encard = 0 ∨ hit.encard = 1 ∨ hit.encard ≥ 2 := by
+    have := h0.fintype
+    unfold Set.encard
+    rw [ENat.card_eq_coe_natCard]
+    norm_cast
+    omega
+  · exfalso
+    rw [Set.encard_eq_zero] at h1
+    have h2 := hit_at_least_once_of_finite S hS4 hS2
+    contrapose! h2
+    exact h1
+  · exfalso
+    rw [Set.encard_eq_one] at h1
+    obtain ⟨x, hx⟩ := h1
+    have hx1 : x ∈ hit := by simp [hx]
+    have hx2 : x ∈ S := hx1.left
+    have hx3 := hx1.right
+    have h1 : c ∈ convexHull ℝ hit := by
+      convert center_mem_convexHull_sphere_of_finite S hS4 hS3 using 2
+      simp [hit, c, r, dist_comm]
+    replace h1 : c = x := by simpa [hx] using h1
+    have h2 : r = 0 := by simpa [h1] using hx3.symm
+    have h3 : r > 0 := radius_pos S hS hS3
+    linarith only [h2, h3]
+  · exact h1
+
 
 open Finset InnerProductSpace in
 /--
@@ -905,9 +825,9 @@ theorem radius_le_sqrt_of_card_le_d_succ
     simp [h1] at hS4
 
   -- Let $$c$$ denote the center of the ball containing $$S$$ of minimum radius $$r$$.
-  set c := center S
+  set c := center S with hc
   -- Translating $$S$$, we may assume without loss of generality that $$c=0$$.
-  wlog hc : c = 0
+  wlog hc' : c = 0
   · let T := (· - c) '' S
     specialize this T
     specialize this (by
@@ -930,6 +850,7 @@ theorem radius_le_sqrt_of_card_le_d_succ
       apply ENat.card_image_of_injective
       apply add_left_injective (-c))
     specialize this (by simpa [T] using hS2)
+    specialize this rfl
     specialize this (by simp [T, center_image_sub_right S hS hS2, c])
     convert this using 1
     · simp [T, radius_image_sub_right]
@@ -956,16 +877,15 @@ theorem radius_le_sqrt_of_card_le_d_succ
   let S' := {x ∈ S | ‖x‖ = r}
   have hS' : S' ⊆ S := by simp [S']
   let n := Nat.card S'
-  have hn : n ≥ 2 := by -- if only n ≥ 1 is needed here, might ignore hit_at_least_twice ...
+  have hn : n ≠ 0 := by
     unfold n
-    apply ENat.coe_le_coe.mp
-    change _ ≥ _
-    convert_to {x ∈ S | dist (center S) x = r}.encard ≥ 2 using 1
-    · rw [←ENat.card_eq_coe_natCard, Set.encard]
-      congr! 6 with x
-      unfold c at hc
-      simp [hc]
-    exact hit_at_least_twice_of_finite S hS4 h1'.finite
+    suffices S'.Nonempty by
+      contrapose! this
+      have h2 := Set.Finite.subset h1'.finite hS'
+      exact (Set.ncard_eq_zero h2).mp this
+    have := hit_at_least_once_of_finite S h1'.finite hS2
+    convert this using 5 with x
+    simp [←hc, hc']
 
   let x' : Icc 1 n ≃ S' :=
     ((Icc 1 n).equivFinOfCardEq (by simp [n])).trans (Finite.equivFinOfCardEq rfl).symm
@@ -1006,8 +926,7 @@ theorem radius_le_sqrt_of_card_le_d_succ
     · simpa using hx4
     unfold S'
     convert center_mem_convexHull_sphere_of_finite S h1'.finite hS4 using 6 with x
-    unfold c at hc
-    simp [hc]
+    simp [←hc, hc']
 
   -- and therefore we can write
   -- $$\displaystyle c=\sum_{k=1}^{n}\lambda_{k}x_{k}$$, with $$\lambda_{k}\geq0$$,
@@ -1122,7 +1041,7 @@ theorem radius_le_sqrt_of_card_le_d_succ
     _ = (1 / diam S ^ 2) * (2 * r ^ 2 - 2 * (⟪∑ k ∈ Icc 1 n, l k • x k, x i⟫_ℝ)) := by
       congr! 4 with k hk
       rw [sum_inner]
-    _ = (1 / diam S ^ 2) * (2 * r ^ 2) := by simp [←h8, hc]
+    _ = (1 / diam S ^ 2) * (2 * r ^ 2) := by simp [←h8, hc']
     _ = 2 * r ^ 2 / diam S ^ 2 := by field_simp
 
 -- Summing $$1-\lambda_{i}$$ over $$i\in\left\{1,\cdots,n\right\}$$, we obtain
@@ -1174,8 +1093,7 @@ theorem radius_le_sqrt_of_card_le_d_succ
           convert hS3 using 1
           rw [←ENat.card_eq_coe_natCard, Set.encard]
       rify at hn1 hn2
-      nlinarith
-
+      nlinarith only [hn2]
 
 
 open Finset in
@@ -1211,23 +1129,24 @@ theorem radius_le_sqrt_of_card_ge_d_succ
   · intro ⟨i, hi⟩
     apply isCompact_closedBall
   · intro I hI
+    let I' := SetLike.coe I
     replace hI : #I = d + 1 := by simpa using hI
     simp only [Set.iInter_coe_set, Set.nonempty_iInter, Set.mem_iInter]
-    set c := center (Subtype.val '' I.toSet)
-    have hc : radius (Subtype.val '' I.toSet) ≤ _ :=
-      radius_le_sqrt_of_card_le_d_succ (Subtype.val '' I.toSet)
+    set c := center (Subtype.val '' I')
+    have hc : radius (Subtype.val '' I') ≤ _ :=
+      radius_le_sqrt_of_card_le_d_succ (Subtype.val '' I')
         (IsBounded.subset hS (Subtype.coe_image_subset S I))
         (calc
-          _ ≤ I.toSet.encard := by apply Set.encard_image_le
-          _ = _ := by simpa using ENat.coe_inj.mpr hI)
-    have hc' := subset_of_isBounded (Subtype.val '' I.toSet)
+          _ ≤ I'.encard := by apply Set.encard_image_le
+          _ = _ := by simpa [I'] using ENat.coe_inj.mpr hI)
+    have hc' := subset_of_isBounded (Subtype.val '' I')
       (IsBounded.subset hS (Subtype.coe_image_subset S I))
     rw [Set.image_subset_iff] at hc'
     use c
     intro i hi hi2
     specialize hc' hi2
     suffices dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (S) by simpa [F] using this
-    replace hc : dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (Subtype.val '' I.toSet) := by
+    replace hc : dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (Subtype.val '' I') := by
       simp at hc'
       simpa [dist_comm] using hc'.trans hc
     apply le_trans hc
