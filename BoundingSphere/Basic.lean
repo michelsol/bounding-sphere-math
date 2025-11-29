@@ -7,11 +7,11 @@ import Mathlib
 
 section
 open Bornology ENNReal Metric
-variable {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
+variable [PseudoMetricSpace α] {X : Set α}
 
 /-- The distance from a point `c` to the "farthest" point in a set `X`, possibly `∞`
 if `X` is unbounded. -/
-noncomputable def supEDist (X : Set (EuclideanSpace ℝ (Fin d))) c := sSup {edist s c | s ∈ X}
+noncomputable def supEDist [EDist α] (X : Set α) c := sSup {edist s c | s ∈ X}
 
 theorem supEDist_ne_top_of_isBounded (h1 : IsBounded X) c : supEDist X c ≠ ⊤ := by
   unfold supEDist
@@ -71,13 +71,13 @@ theorem edist_le_supEDist c {y} (hy : y ∈ X) : edist y c ≤ supEDist X c := b
   simp [upperBounds] at hb
   exact hb y hy
 
-theorem supEDist_image_add_right (X : Set (EuclideanSpace ℝ (Fin d))) c a :
+theorem supEDist_image_add_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
     supEDist ((· + a) '' X) c = supEDist X (c - a) := by
   apply csSup_eq_csSup_of_forall_exists_le
   · intro _ ⟨x, hx, hx2⟩
     subst hx2
     simp only [Set.mem_setOf_eq, exists_exists_and_eq_and]
-    use x - a, by simpa using hx, by rw [edist_sub_right]
+    use x - a, by simpa [←sub_eq_add_neg] using hx, by rw [edist_sub_right]
   · intro _ ⟨y, hy, hy2⟩
     subst hy2
     simp only [Set.mem_setOf_eq, exists_exists_and_eq_and]
@@ -86,14 +86,16 @@ theorem supEDist_image_add_right (X : Set (EuclideanSpace ℝ (Fin d))) c a :
       _ = edist (y + a - a) (c - a) := by congr 1; simp
       _ ≤ _ := by rw [edist_sub_right]
 
-theorem supEDist_image_sub_right (X : Set (EuclideanSpace ℝ (Fin d))) c a :
+theorem supEDist_image_sub_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
     supEDist ((· - a) '' X) c = supEDist X (c + a) := by
-  convert supEDist_image_add_right X c (-a) using 2; simp
+  convert supEDist_image_add_right X c (-a) using 2
+  · simp [sub_eq_add_neg]
+  · simp
 
 
 /-- The distance from a point `c` to the "farthest" point in a set `X`, as a real number equal to
 `0` in particular if `X` is unbounded. -/
-noncomputable def supDist (X : Set (EuclideanSpace ℝ (Fin d))) c := (supEDist X c).toReal
+noncomputable def supDist (X : Set α) c := (supEDist X c).toReal
 
 theorem supDist_eq c : supDist X c = sSup {dist s c | s ∈ X} := by
   unfold supDist supEDist
@@ -136,12 +138,12 @@ theorem dist_le_supDist (h1 : IsBounded X) c {y} (hy : y ∈ X) : dist y c ≤ s
   rw [←supEDist_eq_supDist_of_isBounded h1 c]
   apply edist_le_supEDist c hy
 
-theorem supDist_image_add_right (X : Set (EuclideanSpace ℝ (Fin d))) c a :
+theorem supDist_image_add_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
     supDist ((· + a) '' X) c = supDist X (c - a) := by
   unfold supDist
   rw [supEDist_image_add_right]
 
-theorem supDist_image_sub_right (X : Set (EuclideanSpace ℝ (Fin d))) c a :
+theorem supDist_image_sub_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
     supDist ((· - a) '' X) c = supDist X (c + a) := by
   unfold supDist
   rw [supEDist_image_sub_right]
@@ -488,12 +490,11 @@ theorem radius_singleton (a : EuclideanSpace ℝ (Fin d)) : radius {a} = 0 := by
 
 /-- The minimal bounding sphere of a finite set `X` contains some point of `X` on its boundary. -/
 theorem nonempty_sphere_of_finite (h1 : X.Finite) (h2 : X.Nonempty) :
-    {x ∈ X | dist (center X) x = radius X}.Nonempty := by
+    (X ∩ sphere (center X) (radius X)).Nonempty := by
   have hr := radius_le h1.isBounded h2
   have hc := subset h1.isBounded
   set c := center X
   set r := radius X
-  let hit := {x ∈ X | dist c x = r}
   obtain ⟨y0, hy0, hy0'⟩ := supDist_mem_of_isFinite c h1 h2
   dsimp at hy0'
   set r' := supDist X c
@@ -503,13 +504,13 @@ theorem nonempty_sphere_of_finite (h1 : X.Finite) (h2 : X.Nonempty) :
     exact dist_le_supDist h1.isBounded c hs
   have h4 : r' ≤ r := by simpa [hy0'] using hc hy0
   replace h2 : r = r' := by linarith only [h3, h4]
-  have h5 : y0 ∈ hit := by simp [hit, hy0, hy0', h2, dist_comm]
+  have h5 : y0 ∈ X ∩ sphere c r := by simp [sphere, hy0, hy0', h2]
   use y0
 
 /-- The center of the minimal bounding sphere of a finite set `X` with at least two points
 is contained in the convex hull of the points of `X` that lie on the boundary of the sphere. -/
 theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard ≥ 2) :
-    center X ∈ convexHull ℝ {x ∈ X | dist x (center X) = radius X} := by
+    center X ∈ convexHull ℝ (X ∩ sphere (center X) (radius X)) := by
   have h3 : X.Nonempty := by
     apply Set.encard_ne_zero.mp
     by_contra! h1
@@ -539,10 +540,7 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
         simp [Xs]
       · fun_prop
     have ht3 : IsClosed t := IsCompact.isClosed ht2
-    have ht4 : Xs.Nonempty := by
-      unfold Xs
-      convert nonempty_sphere_of_finite h1 h3 using 5 with x
-      simp [dist_comm, c]
+    have ht4 : Xs.Nonempty := nonempty_sphere_of_finite h1 h3
     have ht5 : t.Nonempty := Set.image_nonempty.mpr ht4.convexHull
     have hst : Disjoint s t := by
       simp [s, t]
@@ -582,9 +580,7 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
       exact hε.le
   have h9 : Xs.toFinset.Nonempty := by
     apply Set.toFinset_nonempty.mpr
-    unfold Xs
-    convert nonempty_sphere_of_finite h1 h3 using 5 with x
-    simp [dist_comm, c]
+    apply nonempty_sphere_of_finite h1 h3
   obtain ⟨a1, ha1, h10⟩ : ∃ a1 > 0, ∀ ε, ε > 0 → ε < a1 → ∀ x ∈ Xs, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
     let δ x := ⟪v, x - c⟫_ℝ
     let d := Xs.toFinset.inf' h9 δ
@@ -711,7 +707,7 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
 theorem encard_sphere_ge_two_of_finite (h : X.encard ≥ 2) (h' : X.Finite) :
-    {x ∈ X | dist (center X) x = radius X}.encard ≥ 2 := by
+    (X ∩ sphere (center X) (radius X)).encard ≥ 2 := by
   have hX : IsBounded X := h'.isBounded
   have hX2 : X.Nonempty := by
     apply Set.encard_ne_zero.mp
@@ -721,7 +717,7 @@ theorem encard_sphere_ge_two_of_finite (h : X.encard ≥ 2) (h' : X.Finite) :
   have hc := subset hX
   set c := center X
   set r := radius X
-  let hit := {x ∈ X | dist c x = r}
+  let hit := X ∩ sphere (center X) (radius X)
   change hit.encard ≥ 2
   obtain h0 | h0 : ¬hit.Finite ∨ hit.Finite := by tauto
   · rw [Set.encard_eq_top]
@@ -744,11 +740,9 @@ theorem encard_sphere_ge_two_of_finite (h : X.encard ≥ 2) (h' : X.Finite) :
     have hx1 : x ∈ hit := by simp [hx]
     have hx2 : x ∈ X := hx1.left
     have hx3 := hx1.right
-    have h1 : c ∈ convexHull ℝ hit := by
-      convert center_mem_convexHull_sphere_of_finite h' h using 2
-      simp [hit, c, r, dist_comm]
+    have h1 : c ∈ convexHull ℝ hit := center_mem_convexHull_sphere_of_finite h' h
     replace h1 : c = x := by simpa [hx] using h1
-    have h2 : r = 0 := by simpa [h1] using hx3.symm
+    have h2 : r = 0 := by simpa [sphere, c, h1] using hx3.symm
     have h3 : r > 0 := radius_pos hX h
     linarith only [h2, h3]
   · exact h1
@@ -826,7 +820,7 @@ theorem radius_le_sqrt_of_card_le
     convert hX3 using 1
     simp
 
-  let X' := {x ∈ X | ‖x‖ = r}
+  let X' := X ∩ sphere 0 r
   have hS' : X' ⊆ X := by simp [X']
   let n := Nat.card X'
   have hn : n ≠ 0 := by
@@ -836,7 +830,7 @@ theorem radius_le_sqrt_of_card_le
       have h2 := Set.Finite.subset h1'.finite hS'
       exact (Set.ncard_eq_zero h2).mp this
     have := nonempty_sphere_of_finite h1'.finite hX4
-    convert this using 5 with x
+    convert this using 3 with x
     simp [←hc, hc']
 
   let x' : Icc 1 n ≃ X' :=
