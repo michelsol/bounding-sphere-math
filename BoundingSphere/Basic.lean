@@ -11,7 +11,7 @@ variable [PseudoMetricSpace α] {X : Set α}
 
 /-- The distance from a point `c` to the "farthest" point in a set `X`, possibly `∞`
 if `X` is unbounded. -/
-noncomputable def supEDist [EDist α] (X : Set α) c := sSup {edist s c | s ∈ X}
+noncomputable def supEDist {α} [EDist α] (X : Set α) c := sSup {edist s c | s ∈ X}
 
 theorem supEDist_ne_top_of_isBounded (h1 : IsBounded X) c : supEDist X c ≠ ⊤ := by
   unfold supEDist
@@ -163,15 +163,97 @@ end
 
 namespace BoundingSphere
 open Bornology ENNReal Metric InnerProductSpace
-variable {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
+
+section
+variable {α} {X : Set α} [PseudoMetricSpace α]
 
 /-- The radius of the minimal bounding sphere of a set `X`, defined as the infimum of the supremal
 distance from a point to the set. -/
-noncomputable def radius (X : Set (EuclideanSpace ℝ (Fin d))) := sInf (Set.range (supDist X))
+noncomputable def radius (X : Set α) := sInf (Set.range (supDist X))
 
-theorem radius_empty : radius (∅ : Set (EuclideanSpace ℝ (Fin d))) = 0 := by
+theorem radius_nonneg : radius X ≥ 0 := by
+  apply Real.sInf_nonneg ?_
+  intro _ ⟨x, hx⟩
+  subst hx
+  simp [supDist]
+
+@[simp]
+theorem radius_empty [Inhabited α] : radius (∅ : Set α) = 0 := by
   unfold radius supDist supEDist
   simp
+
+theorem ofReal_radius_eq_of_isBounded [Inhabited α] (h1 : IsBounded X) :
+    ENNReal.ofReal (radius X) = sInf (Set.range (supEDist X)) := by
+  unfold radius
+  obtain h0 | h0 := X.eq_empty_or_nonempty
+  · unfold supDist supEDist
+    simp [h0]
+  symm
+  calc
+  _ = ENNReal.ofReal (sInf (Set.range (supEDist X))).toReal := by
+    rw [ofReal_toReal]
+    by_contra! h2
+    rw [sInf_eq_top] at h2
+    contrapose! h2
+    let s0 := h0.choose
+    use supEDist X s0, by simp, supEDist_ne_top_of_isBounded h1 s0
+  _ = ENNReal.ofReal (sInf (ENNReal.toReal '' Set.range (supEDist X))) := by
+    rw [toReal_sInf]
+    intro _ ⟨x, hx⟩
+    subst hx
+    exact supEDist_ne_top_of_isBounded h1 x
+  _ = ENNReal.ofReal (sInf (Set.range (ENNReal.toReal ∘ supEDist X))) := by rw [Set.range_comp]
+
+/-- The radius of the minimal bounding sphere of a bounded set `X` is less than or equal to
+that of any other sphere containing `X`. -/
+theorem radius_le [Inhabited α] (h1 : IsBounded X) (h0 : X.Nonempty) :
+    ∀ c', ∀ r', X ⊆ closedBall c' r' → radius X ≤ r' := by
+  intro c' r' h2
+  have hr' := calc
+      r' ≥ dist h0.choose c' := h2 h0.choose_spec
+      _ ≥ 0 := dist_nonneg
+  rw [←ofReal_le_ofReal_iff hr', ofReal_radius_eq_of_isBounded h1, sInf_le_iff]
+  intro s hs
+  replace hs : ∀ x, s ≤ supEDist X x := by simpa [lowerBounds] using hs
+  specialize hs c'
+  rw [supEDist, le_sSup_iff] at hs
+  apply hs
+  intro _ ⟨a, ha, ha2⟩
+  subst ha2
+  rw [edist_le_ofReal hr']
+  exact h2 ha
+
+@[simp]
+theorem radius_singleton [Inhabited α] (a : α) : radius {a} = 0 := by
+  suffices radius {a} ≤ 0 by
+    apply le_antisymm this
+    apply radius_nonneg
+  apply radius_le isBounded_singleton (Set.singleton_nonempty a) a 0
+  simp
+
+end
+
+section
+variable {α} {X : Set α} [PseudoMetricSpace α] [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α]
+
+theorem radius_image_add_right (X : Set α) a :
+    radius ((· + a) '' X) = radius X := by
+  unfold radius
+  convert_to sInf (Set.range (supDist X ∘ (· - a))) = _ using 3
+  · ext c
+    rw [supDist_image_add_right, Function.comp_apply]
+  congr 1
+  apply Function.Surjective.range_comp
+  simpa [sub_eq_add_neg] using add_right_surjective (-a)
+
+theorem radius_image_sub_right (X : Set α) a :
+    radius ((· - a) '' X) = radius X := by
+  simpa [sub_eq_add_neg] using radius_image_add_right X (-a)
+
+end
+
+section
+variable {α} {X : Set α} [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
 
 /-- If `X` is bounded, then the radius is attained
 as the supremal distance from some point in `X`. -/
@@ -270,46 +352,17 @@ theorem radius_mem_of_isBounded (h1 : IsBounded X) : radius X ∈ Set.range (sup
         _ = _ := by congr 1; simp [edist_dist]
   · use supDist X s0, s0, by simp [K, supDist]
 
-
 open Classical in
 /-- The center of the minimal bounding sphere of a bounded set `X`,
 defined as a point where the radius is attained. -/
-noncomputable def center (X : Set (EuclideanSpace ℝ (Fin d))) :=
-  if h1 : IsBounded X then (radius_mem_of_isBounded h1).choose else 0
+noncomputable def center (X : Set α) :=
+  if h1 : IsBounded X then (radius_mem_of_isBounded h1).choose else default
 
 theorem radius_eq_supDist_center_of_isBounded (h1 : IsBounded X) :
     radius X = supDist X (center X) := by
   unfold center
   split_ifs
   exact (radius_mem_of_isBounded h1).choose_spec.symm
-
-theorem radius_nonneg : radius X ≥ 0 := by
-  apply Real.sInf_nonneg ?_
-  intro _ ⟨x, hx⟩
-  subst hx
-  simp [supDist]
-
-theorem ofReal_radius_eq_of_isBounded (h1 : IsBounded X) :
-    ENNReal.ofReal (radius X) = sInf (Set.range (supEDist X)) := by
-  unfold radius
-  obtain h0 | h0 := X.eq_empty_or_nonempty
-  · unfold supDist supEDist
-    simp [h0]
-  symm
-  calc
-  _ = ENNReal.ofReal (sInf (Set.range (supEDist X))).toReal := by
-    rw [ofReal_toReal]
-    by_contra! h2
-    rw [sInf_eq_top] at h2
-    contrapose! h2
-    let s0 := h0.choose
-    use supEDist X s0, by simp, supEDist_ne_top_of_isBounded h1 s0
-  _ = ENNReal.ofReal (sInf (ENNReal.toReal '' Set.range (supEDist X))) := by
-    rw [toReal_sInf]
-    intro _ ⟨x, hx⟩
-    subst hx
-    exact supEDist_ne_top_of_isBounded h1 x
-  _ = ENNReal.ofReal (sInf (Set.range (ENNReal.toReal ∘ supEDist X))) := by rw [Set.range_comp]
 
 /-- The minimal bounding sphere of a bounded set `X` contains the set `X`. -/
 theorem subset (h1 : IsBounded X) : X ⊆ closedBall (center X) (radius X) := by
@@ -319,35 +372,134 @@ theorem subset (h1 : IsBounded X) : X ⊆ closedBall (center X) (radius X) := by
     exact dist_le_supDist h1 (center X) hs
   · simp [Set.not_nonempty_iff_eq_empty.mp h0]
 
-/-- The radius of the minimal bounding sphere of a bounded set `X` is less than or equal to
-that of any other sphere containing `X`. -/
-theorem radius_le (h1 : IsBounded X) (h0 : X.Nonempty) :
-    ∀ c', ∀ r', X ⊆ closedBall c' r' → radius X ≤ r' := by
-  intro c' r' h2
-  have hr' := calc
-      r' ≥ dist h0.choose c' := h2 h0.choose_spec
-      _ ≥ 0 := dist_nonneg
-  rw [←ofReal_le_ofReal_iff hr', ofReal_radius_eq_of_isBounded h1, sInf_le_iff]
-  intro s hs
-  replace hs : ∀ x, s ≤ supEDist X x := by simpa [lowerBounds] using hs
-  specialize hs c'
-  rw [supEDist, le_sSup_iff] at hs
-  apply hs
-  intro _ ⟨a, ha, ha2⟩
-  subst ha2
-  rw [edist_le_ofReal hr']
-  exact h2 ha
+end
+
+
+section
+variable {α} {X : Set α}
 
 /-- A set `X` is minimally enclosed by a closed ball with center `c` and radius `r`
 if `X` is contained in the closed ball and any closed ball containing `X` has radius at least
 `r`. -/
-def IsMinimal (X : Set (EuclideanSpace ℝ (Fin d))) c r :=
+def IsMinimal [PseudoMetricSpace α] (X : Set α) c r :=
   X ⊆ closedBall c r ∧ ∀ c', ∀ r', X ⊆ closedBall c' r' → r ≤ r'
 
-theorem IsMinimal.of_isBounded (h1 : IsBounded X) (h0 : X.Nonempty) :
+theorem IsMinimal.of_isBounded [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
+    (h1 : IsBounded X) (h0 : X.Nonempty) :
     IsMinimal X (center X) (radius X) := ⟨subset h1, radius_le h1 h0⟩
 
-theorem radius_pos (h1 : IsBounded X) (h2 : X.encard ≥ 2) : radius X > 0 := by
+
+/-- The radius of a minimal bounding sphere is unique. -/
+theorem radius_eq_radius_of_IsMinimal [PseudoMetricSpace α]
+    {x r1 y r2} (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : r1 = r2 :=
+  le_antisymm (h1.right y r2 h2.left) (h2.right x r1 h1.left)
+
+/-- The center of a minimal bounding sphere is unique.
+Thus the minimal bounding sphere is unique. -/
+theorem center_eq_center_of_IsMinimal
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    (h0 : X.Nonempty)
+    {x r1 y r2} (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : x = y := by
+  have h := radius_eq_radius_of_IsMinimal h1 h2
+  subst h
+  let s0 := h0.choose
+  have hs0 : s0 ∈ X := h0.choose_spec
+  have hr1 := calc
+      r1 ≥ dist s0 y := h2.left hs0
+      _ ≥ 0 := dist_nonneg
+  let r0 := dist x y / 2
+  let c := (1 / 2 : ℝ) • (x + y)
+  set B1 := closedBall x r1
+  set B2 := closedBall y r1
+  have h5 z (hz1 : z ∈ B1) (hz2 : z ∈ B2) : dist z c ^ 2 ≤ r1 ^ 2 - r0 ^ 2 := calc
+    dist z c ^ 2 = _ := by rw [dist_eq_norm]
+    ‖z - c‖ ^ 2 = ‖(1 / 2 : ℝ) • (z - x + (z - y))‖ ^ 2 := by
+      congr 2
+      module
+    _ = ‖(1 / 2 : ℝ)‖ ^ 2 * ‖(z - x + (z - y))‖ ^ 2 := by
+      rw [norm_smul]
+      ring
+    _ = (1 / 4 : ℝ) * ‖(z - x + (z - y))‖ ^ 2 := by congr 1; norm_num
+    _ = (1 / 4 : ℝ) * (2 * ‖z - x‖ ^ 2 + 2 * ‖z - y‖ ^ 2 - ‖x - y‖ ^ 2) := by
+      congr 1
+      set a := z - x
+      set b := z - y
+      convert_to ‖a + b‖ ^ 2 = 2 * ‖a‖ ^ 2 + 2 * ‖b‖ ^ 2 - ‖a - b‖ ^ 2 using 3
+      · rw [norm_sub_rev]
+        congr 1
+        module
+      generalize a = a, b = b
+      rw [norm_add_sq_real, norm_sub_sq_real]
+      ring
+    _ = (1 / 2 : ℝ) * ‖z - x‖ ^ 2 + (1 / 2 : ℝ) * ‖z - y‖ ^ 2 - (1 / 4 : ℝ) * ‖x - y‖ ^ 2 := by ring
+    _ ≤ (1 / 2 : ℝ) * r1 ^ 2 + (1 / 2 : ℝ) * r1 ^ 2 - (1 / 4 : ℝ) * (2 * r0) ^ 2 := by
+      gcongr 4
+      · simpa [B1, dist_eq_norm] using hz1
+      · simpa [B2, dist_eq_norm] using hz2
+      · apply le_of_eq
+        calc
+          _ = dist x y := by ring
+          _ = ‖x - y‖ := by rw [dist_eq_norm]
+    _ = r1 ^ 2 - r0 ^ 2 := by ring
+  have h6 : X ⊆ closedBall c √(r1 ^ 2 - r0 ^ 2) := by
+    intro s hs
+    rw [mem_closedBall]
+    calc
+      _ = √(dist s c ^ 2) := by
+        symm
+        apply Real.sqrt_sq
+        apply dist_nonneg
+      _ ≤ √(r1 ^ 2 - r0 ^ 2) := Real.sqrt_le_sqrt (h5 s (h1.left hs) (h2.left hs))
+  have h3 := h1.right c (√(r1 ^ 2 - r0 ^ 2)) h6
+  replace h3 := calc
+    r1 ^ 2 ≤ √(r1 ^ 2 - r0 ^ 2) ^ 2 := by gcongr 1
+    _ = r1 ^ 2 - r0 ^ 2 := by
+      apply Real.sq_sqrt
+      calc
+        0 ≤ dist s0 c ^ 2 := by apply sq_nonneg
+        _ ≤ _ := h5 s0 (h1.left hs0) (h2.left hs0)
+  replace h3 : r0 = 0 := by nlinarith only [h3]
+  unfold r0 at h3
+  replace h3 : dist x y = 0 := by linarith only [h3]
+  simpa [dist_eq_zero] using h3
+
+end
+
+section
+variable {α} {X : Set α}
+variable [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+variable [Inhabited α] [ProperSpace α]
+
+theorem center_image_add_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
+    center ((· + a) '' X) = center X + a := by
+  set T := ((· + a) '' X)
+  have h1' : IsBounded T := by
+    apply isBounded_image_iff.mpr
+    use diam X
+    intro x hx y hy
+    simpa using dist_le_diam_of_mem h1 hx hy
+  have h2' : T.Nonempty := by apply h2.image
+  have h3 := IsMinimal.of_isBounded h1' h2'
+  have h4 : IsMinimal T (center X + a) (radius X) := by
+    split_ands
+    · simp only [T, Set.image_subset_iff, preimage_add_right_closedBall, add_sub_cancel_right]
+      exact subset h1
+    · intro c' r' h
+      simp only [T, Set.image_subset_iff, preimage_add_right_closedBall] at h
+      exact radius_le h1 h2 (c' - a) r' h
+  exact center_eq_center_of_IsMinimal h2' h3 h4
+
+theorem center_image_sub_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
+    center ((· - a) '' X) = center X - a := by
+  simpa [sub_eq_add_neg] using center_image_add_right h1 h2 (-a)
+
+end
+
+section
+variable {α} {X : Set α}
+
+theorem radius_pos [MetricSpace α] [Inhabited α] [ProperSpace α]
+    (h1 : IsBounded X) (h2 : X.encard ≥ 2) : radius X > 0 := by
   obtain ⟨x0, hx0, x1, hx1, h3⟩ : ∃ x0 ∈ X, ∃ x1 ∈ X, x0 ≠ x1 := by
     have f : Fin 2 ↪ X := by
       by_cases h3 : X.Finite
@@ -377,119 +529,11 @@ theorem radius_pos (h1 : IsBounded X) (h2 : X.encard ≥ 2) : radius X > 0 := by
     _ > 0 / 2 := by gcongr 1; exact dist_pos.mpr h3
     _ = 0 := by simp
 
-theorem radius_image_add_right (X : Set (EuclideanSpace ℝ (Fin d))) a :
-    radius ((· + a) '' X) = radius X := by
-  unfold radius
-  convert_to sInf (Set.range (supDist X ∘ (· - a))) = _ using 3
-  · ext c
-    rw [supDist_image_add_right, Function.comp_apply]
-  congr 1
-  apply Function.Surjective.range_comp
-  apply add_right_surjective (-a)
-
-theorem radius_image_sub_right (X : Set (EuclideanSpace ℝ (Fin d))) a :
-    radius ((· - a) '' X) = radius X := by
-  convert radius_image_add_right X (-a) using 1
-
-/-- The radius of a minimal bounding sphere is unique. -/
-theorem radius_eq_radius_of_IsMinimal
-    {x r1 y r2} (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : r1 = r2 :=
-  le_antisymm (h1.right y r2 h2.left) (h2.right x r1 h1.left)
-
-/-- The center of a minimal bounding sphere is unique.
-Thus the minimal bounding sphere is unique. -/
-theorem center_eq_center_of_IsMinimal (h0 : X.Nonempty)
-    {x r1 y r2} (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : x = y := by
-  have h := radius_eq_radius_of_IsMinimal h1 h2
-  subst h
-  let s0 := h0.choose
-  have hs0 : s0 ∈ X := h0.choose_spec
-  have hr1 := calc
-      r1 ≥ dist s0 y := h2.left hs0
-      _ ≥ 0 := dist_nonneg
-  let α := dist x y / 2
-  let c := (1 / 2 : ℝ) • (x + y)
-  set B1 := closedBall x r1
-  set B2 := closedBall y r1
-  have h5 z (hz1 : z ∈ B1) (hz2 : z ∈ B2) : dist z c ^ 2 ≤ r1 ^ 2 - α ^ 2 := calc
-    ‖z - c‖ ^ 2 = ‖(1 / 2 : ℝ) • (z - x + (z - y))‖ ^ 2 := by congr 2; module
-    _ = ‖(1 / 2 : ℝ)‖ ^ 2 * ‖(z - x + (z - y))‖ ^ 2 := by rw [norm_smul]; ring
-    _ = (1 / 4 : ℝ) * ‖(z - x + (z - y))‖ ^ 2 := by congr 1; norm_num
-    _ = (1 / 4 : ℝ) * (2 * ‖z - x‖ ^ 2 + 2 * ‖z - y‖ ^ 2 - ‖x - y‖ ^ 2) := by
-      congr 1
-      set a := z - x
-      set b := z - y
-      convert_to ‖a + b‖ ^ 2 = 2 * ‖a‖ ^ 2 + 2 * ‖b‖ ^ 2 - ‖a - b‖ ^ 2 using 3
-      · rw [norm_sub_rev]
-        congr 1
-        module
-      generalize a = a, b = b
-      rw [norm_add_sq_real, norm_sub_sq_real]
-      ring
-    _ = (1 / 2 : ℝ) * ‖z - x‖ ^ 2 + (1 / 2 : ℝ) * ‖z - y‖ ^ 2 - (1 / 4 : ℝ) * ‖x - y‖ ^ 2 := by ring
-    _ ≤ (1 / 2 : ℝ) * r1 ^ 2 + (1 / 2 : ℝ) * r1 ^ 2 - (1 / 4 : ℝ) * (2 * α) ^ 2 := by
-      gcongr 4
-      · exact hz1
-      · exact hz2
-      · apply le_of_eq
-        calc
-          _ = dist x y := by ring
-          _ = ‖x - y‖ := rfl
-    _ = r1 ^ 2 - α ^ 2 := by ring
-  have h6 : X ⊆ closedBall c √(r1 ^ 2 - α ^ 2) := by
-    intro s hs
-    rw [mem_closedBall]
-    calc
-      _ = √(dist s c ^ 2) := by
-        symm
-        apply Real.sqrt_sq
-        apply dist_nonneg
-      _ ≤ √(r1 ^ 2 - α ^ 2) := Real.sqrt_le_sqrt (h5 s (h1.left hs) (h2.left hs))
-  have h3 := h1.right c (√(r1 ^ 2 - α ^ 2)) h6
-  replace h3 := calc
-    r1 ^ 2 ≤ √(r1 ^ 2 - α ^ 2) ^ 2 := by gcongr 1
-    _ = r1 ^ 2 - α ^ 2 := by
-      apply Real.sq_sqrt
-      calc
-        0 ≤ dist s0 c ^ 2 := by apply sq_nonneg
-        _ ≤ _ := h5 s0 (h1.left hs0) (h2.left hs0)
-  replace h3 : α = 0 := by nlinarith only [h3]
-  unfold α at h3
-  replace h3 : dist x y = 0 := by linarith only [h3]
-  simpa [dist_eq_zero] using h3
-
-theorem center_image_add_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
-    center ((· + a) '' X) = center X + a := by
-  set T := ((· + a) '' X)
-  have h1' : IsBounded T := by
-    apply isBounded_image_iff.mpr
-    use diam X
-    intro x hx y hy
-    simpa using dist_le_diam_of_mem h1 hx hy
-  have h2' : T.Nonempty := by apply h2.image
-  have h3 := IsMinimal.of_isBounded h1' h2'
-  have h4 : IsMinimal T (center X + a) (radius X) := by
-    split_ands
-    · simp only [T, Set.image_subset_iff, preimage_add_right_closedBall, add_sub_cancel_right]
-      exact subset h1
-    · intro c' r' h
-      simp only [T, Set.image_subset_iff, preimage_add_right_closedBall] at h
-      exact radius_le h1 h2 (c' - a) r' h
-  exact center_eq_center_of_IsMinimal h2' h3 h4
-
-theorem center_image_sub_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
-    center ((· - a) '' X) = center X - a := by
-  convert center_image_add_right h1 h2 (-a) using 1
-
-theorem radius_singleton (a : EuclideanSpace ℝ (Fin d)) : radius {a} = 0 := by
-  suffices radius {a} ≤ 0 by
-    apply le_antisymm this
-    apply radius_nonneg
-  apply radius_le isBounded_singleton (Set.singleton_nonempty a) a 0
-  simp
 
 /-- The minimal bounding sphere of a finite set `X` contains some point of `X` on its boundary. -/
-theorem nonempty_sphere_of_finite (h1 : X.Finite) (h2 : X.Nonempty) :
+theorem nonempty_sphere_of_finite
+    [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
+    (h1 : X.Finite) (h2 : X.Nonempty) :
     (X ∩ sphere (center X) (radius X)).Nonempty := by
   have hr := radius_le h1.isBounded h2
   have hc := subset h1.isBounded
@@ -509,7 +553,10 @@ theorem nonempty_sphere_of_finite (h1 : X.Finite) (h2 : X.Nonempty) :
 
 /-- The center of the minimal bounding sphere of a finite set `X` with at least two points
 is contained in the convex hull of the points of `X` that lie on the boundary of the sphere. -/
-theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard ≥ 2) :
+theorem center_mem_convexHull_sphere_of_finite
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    [Inhabited α] [ProperSpace α]
+    (h1 : X.Finite) (h2 : X.encard ≥ 2) :
     center X ∈ convexHull ℝ (X ∩ sphere (center X) (radius X)) := by
   have h3 : X.Nonempty := by
     apply Set.encard_ne_zero.mp
@@ -522,9 +569,9 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
   have h1' := h1.fintype
   set Xs := {x ∈ X | dist x c = r}
   by_contra! h6
-  obtain ⟨v, hv, h7⟩ : ∃ v : EuclideanSpace ℝ (Fin d), v ≠ 0 ∧
+  obtain ⟨v, hv, h7⟩ : ∃ v : α, v ≠ 0 ∧
       ∀ x ∈ convexHull ℝ Xs, ⟪v, x - c⟫_ℝ > 0 := by
-    set s : Set (EuclideanSpace ℝ (Fin d)) := {0}
+    set s : Set α := {0}
     have hs1 : Convex ℝ s := convex_singleton _
     have hs2 : IsCompact s := isCompact_singleton
     set t := (· - c) '' convexHull ℝ (Xs)
@@ -547,14 +594,11 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
       intro x hx
       contrapose! h6
       convert hx using 1
-      ext k
-      let g : EuclideanSpace ℝ (Fin d) → ℝ := (WithLp.ofLp · k)
-      apply_fun g at h6
-      simp [g] at h6
-      linarith only [h6]
+      apply_fun (· + c) at h6
+      simpa using h6.symm
     obtain ⟨f, u, v, g1, g2, g3⟩ := geometric_hahn_banach_compact_closed hs1 hs2 ht1 ht3 hst
-    let w := (InnerProductSpace.toDual ℝ (EuclideanSpace ℝ (Fin d))).symm f
-    have hh (x : EuclideanSpace ℝ (Fin d)) : f x = ⟪w, x⟫_ℝ := by simp [w]
+    let w := (InnerProductSpace.toDual ℝ α).symm f
+    have hh (x : α) : f x = ⟪w, x⟫_ℝ := by simp [w]
     replace g1 : u > 0 := by simpa [s] using g1
     use w
     use by
@@ -618,6 +662,7 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
         simp [Xs, dist_eq_norm] at hxi
         simp [hxi]
   obtain ⟨a2, ha2, h11⟩ : ∃ a2 > 0, ∀ ε, ε > 0 → ε < a2 → ∀ x ∈ Xint, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
+    have h1'' := Fintype.ofFinite Xint
     by_cases hXint : Xint = ∅
     · simp [hXint]; use 1; norm_num
     replace hXint : Xint.toFinset.Nonempty := by
@@ -706,7 +751,10 @@ theorem center_mem_convexHull_sphere_of_finite (h1 : X.Finite) (h2 : X.encard �
 
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
-theorem encard_sphere_ge_two_of_finite (h : X.encard ≥ 2) (h' : X.Finite) :
+theorem encard_sphere_ge_two_of_finite
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    [Inhabited α] [ProperSpace α]
+    (h : X.encard ≥ 2) (h' : X.Finite) :
     (X ∩ sphere (center X) (radius X)).encard ≥ 2 := by
   have hX : IsBounded X := h'.isBounded
   have hX2 : X.Nonempty := by
@@ -747,8 +795,12 @@ theorem encard_sphere_ge_two_of_finite (h : X.encard ≥ 2) (h' : X.Finite) :
     linarith only [h2, h3]
   · exact h1
 
+
 open Finset in
 theorem radius_le_sqrt_of_card_le
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    [Inhabited α] [ProperSpace α] [DecidableEq α]
+    {d : ℕ}
     (hX : IsBounded X) (hX2 : X.encard ≤ d + 1) :
     radius X ≤ √(d / (2 * d + 2) : ℝ) * diam X := by
 
@@ -777,7 +829,7 @@ theorem radius_le_sqrt_of_card_le
   set c := center X with hc
   wlog hc' : c = 0
   · let T := (· - c) '' X
-    specialize @this d T
+    specialize this (X := T) (d := d)
     specialize this (by
       rw [isBounded_image_iff]
       rw [isBounded_iff] at hX
@@ -786,17 +838,20 @@ theorem radius_le_sqrt_of_card_le
       intro x hx y hy
       calc
         dist (x - c) (y - c) ≤ dist (x - c) x + dist x y + dist y (y - c) := by apply dist_triangle4
-        _ = ‖(x - c) - x‖ + dist x y + ‖y - (y - c)‖ := by congr 1
+        _ = ‖(x - c) - x‖ + dist x y + ‖y - (y - c)‖ := by
+          congr 2
+          · rw [dist_eq_norm]
+          · rw [dist_eq_norm]
         _ = ‖c‖ + dist x y + ‖c‖ := by (iterate 2 congr 1) <;> simp
         _ ≤ ‖c‖ + R + ‖c‖ := by gcongr 2; exact hR hx hy)
     specialize this (by
       convert hX2 using 1
       apply ENat.card_image_of_injective
-      apply add_left_injective (-c))
+      simpa [sub_eq_add_neg] using add_left_injective (-c))
     specialize this (by
       convert hX3 using 1
       apply ENat.card_image_of_injective
-      apply add_left_injective (-c))
+      simpa [sub_eq_add_neg] using add_left_injective (-c))
     specialize this (by simpa [T] using hX4)
     specialize this rfl
     specialize this (by simp [T, center_image_sub_right hX hX4, c])
@@ -916,7 +971,9 @@ theorem radius_le_sqrt_of_card_le
     _ ≥ ∑ k ∈ Icc 1 n \ {i}, l k * (‖x k - x i‖ ^ 2 / diam X ^ 2) := by
       gcongr 2 with k hk
       · exact h6 k (by simp at hk ⊢; omega)
-      · suffices dist (x k) (x i) ^ 2 ≤ diam X ^ 2 by field_simp; simpa using this
+      · suffices dist (x k) (x i) ^ 2 ≤ diam X ^ 2 by
+          field_simp
+          simpa [dist_eq_norm] using this
         gcongr 1
         apply dist_le_diam_of_mem hX
         · apply hS'
@@ -1027,8 +1084,13 @@ theorem radius_le_sqrt_of_card_le
 
 open Finset in
 theorem radius_le_sqrt_of_card_ge
-    (hX : IsBounded X) (hX2 : X.encard ≥ d + 1) :
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    [Inhabited α] [ProperSpace α] [DecidableEq α]
+    [FiniteDimensional ℝ α]
+    (hX : IsBounded X) (hX2 : X.encard ≥ Module.finrank ℝ α + 1) :
+    let d := Module.finrank ℝ α
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
+  intro d
 
   have hX3 : X.Nonempty := by
     apply Set.encard_ne_zero.mp
@@ -1080,19 +1142,27 @@ theorem radius_le_sqrt_of_card_ge
 /-- Jung's upper bound.
 The radius of the minimal bounding sphere of a bounded set in `ℝ^d`
 is at most √(d / (2d + 2)) times the diameter of the set. -/
-theorem radius_le_sqrt_of_isBounded (hX : IsBounded X) :
+theorem radius_le_sqrt_of_isBounded
+    {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
+    (hX : IsBounded X) :
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
   obtain h | h : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
   · exact radius_le_sqrt_of_card_le hX h
-  · exact radius_le_sqrt_of_card_ge hX h
+  · have h2 := radius_le_sqrt_of_card_ge hX
+    simp only [finrank_euclideanSpace, Fintype.card_fin] at h2
+    exact h2 h
 
 /-- Jung's theorem. A bounded set in `ℝ^d` is contained in a closed ball
 of radius √(d / (2d + 2)) times its diameter. -/
-theorem jung_theorem (hX : IsBounded X) :
+theorem jung_theorem
+    {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
+    (hX : IsBounded X) :
     ∃ c, X ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam X) := by
   use center X
   apply (subset hX).trans
   apply closedBall_subset_closedBall
   exact radius_le_sqrt_of_isBounded hX
+
+end
 
 end BoundingSphere
