@@ -1104,9 +1104,13 @@ theorem radius_le_sqrt_of_encard_gt_finrank
 The radius of the minimal bounding sphere of a bounded set in `ℝ^d`
 is at most √(d / (2d + 2)) times the diameter of the set. -/
 theorem radius_le_sqrt_of_isBounded
-    {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    [Inhabited α] [ProperSpace α] [DecidableEq α]
+    [FiniteDimensional ℝ α]
     (hX : IsBounded X) :
+    let d := Module.finrank ℝ α
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
+  intro d
   obtain h2 | h2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
   · apply le_trans (radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe h2))
     gcongr 2
@@ -1118,15 +1122,16 @@ theorem radius_le_sqrt_of_isBounded
     rify at h2
     field_simp
     nlinarith only [h2]
-  · have h3 := radius_le_sqrt_of_encard_gt_finrank hX
-    simp only [finrank_euclideanSpace, Fintype.card_fin] at h3
-    exact h3 h2
+  · exact radius_le_sqrt_of_encard_gt_finrank hX h2
 
 /-- Jung's theorem. A bounded set in `ℝ^d` is contained in a closed ball
 of radius √(d / (2d + 2)) times its diameter. -/
 theorem jung_theorem
-    {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
+    [Inhabited α] [ProperSpace α] [DecidableEq α]
+    [FiniteDimensional ℝ α]
     (hX : IsBounded X) :
+    let d := Module.finrank ℝ α
     ∃ c, X ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam X) := by
   use center X
   apply (subset hX).trans
