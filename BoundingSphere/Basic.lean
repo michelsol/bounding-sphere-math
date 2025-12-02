@@ -811,16 +811,14 @@ theorem radius_le_sqrt_of_finite
     rw [←Set.ncard_eq_zero (Set.finite_of_ncard_ne_zero (by linarith only [hX3]))] at h
     omega
 
-  set c := center X with hc
-  wlog hc' : c = 0
-  · let T := (· - c) '' X
+  wlog hc : center X = 0
+  · let T := (· - center X) '' X
     have hT : T.ncard = X.ncard := Set.ncard_image_of_injective _ sub_left_injective
     specialize this (X := T)
-    specialize this (Set.Finite.image (· - c) hX2)
+    specialize this (Set.Finite.image (· - center X) hX2)
     specialize this (by simpa [hT] using hX3)
     specialize this (by simpa [T] using hX4)
-    specialize this rfl
-    specialize this (by simp [T, center_image_sub_right hX2.isBounded hX4, c])
+    specialize this (by simp [T, center_image_sub_right hX2.isBounded hX4])
     convert this using 1
     · simp [T, radius_image_sub_right]
     · congr 1
@@ -852,7 +850,7 @@ theorem radius_le_sqrt_of_finite
       exact (Set.ncard_eq_zero h2).mp this
     have := nonempty_sphere_of_finite h1'.finite hX4
     convert this using 3 with x
-    simp [←hc, hc']
+    simp [hc]
 
   let x' : Icc 1 n ≃ X' :=
     ((Icc 1 n).equivFinOfCardEq (by simp [n])).trans (Finite.equivFinOfCardEq rfl).symm
@@ -884,15 +882,13 @@ theorem radius_le_sqrt_of_finite
     exact hval3.comp (hx'3.comp hy3)
   have hx4 : x '' (Icc 1 n) = X' := hx3.image_eq_of_mapsTo hx1
 
-  have h5 : c ∈ convexHull ℝ ((Icc 1 n).image x) := by
-    convert_to c ∈ convexHull ℝ X' using 2
+  have h5 : center X ∈ convexHull ℝ ((Icc 1 n).image x) := by
+    convert_to center X ∈ convexHull ℝ X' using 2
     · simpa using hx4
-    unfold X'
-    convert center_mem_convexHull_sphere_of_finite h1'.finite hX4 using 6 with x
-    simp [←hc, hc']
+    · simpa [hc] using center_mem_convexHull_sphere_of_finite hX2 hX4
 
   obtain ⟨l, h6, h7, h8⟩ : ∃ (l : ℕ → ℝ),
-      (∀ k ∈ Icc 1 n, l k ≥ 0) ∧ ∑ k ∈ Icc 1 n, l k = 1 ∧ c = ∑ k ∈ Icc 1 n, l k • x k := by
+      (∀ k ∈ Icc 1 n, l k ≥ 0) ∧ ∑ k ∈ Icc 1 n, l k = 1 ∧ center X = ∑ k ∈ Icc 1 n, l k • x k := by
     rw [mem_convexHull'] at h5
     obtain ⟨w, g1, g2, g3⟩ := h5
     use w ∘ x
@@ -1002,7 +998,7 @@ theorem radius_le_sqrt_of_finite
     _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (⟪∑ k ∈ Icc 1 n, l k • x k, x i⟫_ℝ)) := by
       congr! 4 with k hk
       rw [sum_inner]
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2) := by simp [←h8, hc']
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2) := by simp [←h8, hc]
     _ = 2 * r ^ 2 / diam X ^ 2 := by field_simp
 
   have h10 := calc
