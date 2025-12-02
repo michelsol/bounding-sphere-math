@@ -551,19 +551,15 @@ theorem nonempty_sphere_of_finite
   have h5 : y0 ∈ X ∩ sphere c r := by simp [sphere, hy0, hy0', h2]
   use y0
 
-/-- The center of the minimal bounding sphere of a finite set `X` with at least two points
+/-- The center of the minimal bounding sphere of a non empty finite set `X`
 is contained in the convex hull of the points of `X` that lie on the boundary of the sphere. -/
 theorem center_mem_convexHull_sphere_of_finite
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α]
-    (h1 : X.Finite) (h2 : X.encard ≥ 2) :
+    (h1 : X.Finite) (h2 : X.Nonempty) :
     center X ∈ convexHull ℝ (X ∩ sphere (center X) (radius X)) := by
-  have h3 : X.Nonempty := by
-    apply Set.encard_ne_zero.mp
-    by_contra! h1
-    simp [h1] at h2
   have h4 := subset h1.isBounded
-  have h5 := radius_le h1.isBounded h3
+  have h5 := radius_le h1.isBounded h2
   set c := center X
   set r := radius X
   have h1' := h1.fintype
@@ -587,7 +583,7 @@ theorem center_mem_convexHull_sphere_of_finite
         simp [Xs]
       · fun_prop
     have ht3 : IsClosed t := IsCompact.isClosed ht2
-    have ht4 : Xs.Nonempty := nonempty_sphere_of_finite h1 h3
+    have ht4 : Xs.Nonempty := nonempty_sphere_of_finite h1 h2
     have ht5 : t.Nonempty := Set.image_nonempty.mpr ht4.convexHull
     have hst : Disjoint s t := by
       simp [s, t]
@@ -624,7 +620,7 @@ theorem center_mem_convexHull_sphere_of_finite
       exact hε.le
   have h9 : Xs.toFinset.Nonempty := by
     apply Set.toFinset_nonempty.mpr
-    apply nonempty_sphere_of_finite h1 h3
+    apply nonempty_sphere_of_finite h1 h2
   obtain ⟨a1, ha1, h10⟩ : ∃ a1 > 0, ∀ ε, ε > 0 → ε < a1 → ∀ x ∈ Xs, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
     let δ x := ⟪v, x - c⟫_ℝ
     let d := Xs.toFinset.inf' h9 δ
@@ -719,8 +715,8 @@ theorem center_mem_convexHull_sphere_of_finite
           ε < a1 ⊓ a2 := hε2
           _ ≤ a2 := by apply inf_le_right) x h
   let ε0 := a3 / 2
-  let r0 := X.toFinset.sup' (Set.toFinset_nonempty.mpr h3) (‖· - c' ε0‖)
-  obtain ⟨x, hx, hr0⟩ := X.toFinset.exists_mem_eq_sup' (Set.toFinset_nonempty.mpr h3) (‖· - c' ε0‖)
+  let r0 := X.toFinset.sup' (Set.toFinset_nonempty.mpr h2) (‖· - c' ε0‖)
+  obtain ⟨x, hx, hr0⟩ := X.toFinset.exists_mem_eq_sup' (Set.toFinset_nonempty.mpr h2) (‖· - c' ε0‖)
   let c0 := c' ε0
   have h12 : X ⊆ closedBall c0 r0 := by
     intro x hx
@@ -732,7 +728,7 @@ theorem center_mem_convexHull_sphere_of_finite
       rw [Real.sqrt_sq]
       unfold r0
       rw [Finset.le_sup'_iff]
-      use h3.choose, by simpa using h3.choose_spec
+      use h2.choose, by simpa using h2.choose_spec
       apply norm_nonneg
     _ < √(r ^ 2) := by
       apply Real.sqrt_lt_sqrt
@@ -746,7 +742,7 @@ theorem center_mem_convexHull_sphere_of_finite
     _ = r := by
       rw [Real.sqrt_sq]
       apply radius_nonneg
-  have h14 : r ≤ r0 := radius_le h1.isBounded h3 c0 r0 h12
+  have h14 : r ≤ r0 := radius_le h1.isBounded h2 c0 r0 h12
   linarith only [h13, h14]
 
 /-- A finite set with at least two points has at least two points on the boundary
@@ -788,7 +784,7 @@ theorem encard_sphere_ge_two_of_finite
     have hx1 : x ∈ hit := by simp [hx]
     have hx2 : x ∈ X := hx1.left
     have hx3 := hx1.right
-    have h1 : c ∈ convexHull ℝ hit := center_mem_convexHull_sphere_of_finite h' h
+    have h1 : c ∈ convexHull ℝ hit := center_mem_convexHull_sphere_of_finite h' hX2
     replace h1 : c = x := by simpa [hx] using h1
     have h2 : r = 0 := by simpa [sphere, c, h1] using hx3.symm
     have h3 : r > 0 := radius_pos hX h
@@ -797,39 +793,28 @@ theorem encard_sphere_ge_two_of_finite
 
 
 open Finset in
-theorem radius_le_sqrt_of_card_le
+theorem radius_le_sqrt_of_isBounded_nonempty_finite
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
-    {d : ℕ}
-    (hX : IsBounded X) (hX2 : X.encard ≤ d + 1) :
+    (hX : IsBounded X) (hX2 : X.ncard ≥ 1) :
+    let d := X.ncard - 1
     radius X ≤ √(d / (2 * d + 2) : ℝ) * diam X := by
 
-  obtain hX3 | hX3 | hX3 : X.encard = 0 ∨ X.encard = 1 ∨ X.encard ≥ 2 := by
-    have := (Set.finite_of_encard_le_coe hX2).fintype
-    unfold Set.encard
-    rw [ENat.card_eq_coe_natCard]
-    norm_cast
-    omega
-  · rw [Set.encard_eq_zero] at hX3
-    subst hX3
-    unfold radius supDist supEDist
-    simp
-  · have := (Set.finite_of_encard_le_coe hX2).fintype
-    have h1 : X.toFinset.card = 1 := by apply ENat.coe_inj.mp; convert hX3 using 1; simp
-    have ⟨a, ha⟩ := card_eq_one.mp h1
-    rw [←coe_eq_singleton, Set.coe_toFinset] at ha
-    subst ha
-    simp [radius_singleton]
+  intro d
+  obtain hX3 | hX3 : X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
+  · have ⟨a, ha⟩ := Set.ncard_eq_one.mp hX3
+    simp [ha, radius_singleton]
 
   have hX4 : X.Nonempty := by
-    apply Set.encard_ne_zero.mp
-    by_contra! h1
-    simp [h1] at hX3
+    by_contra! h
+    rw [←Set.ncard_eq_zero (Set.finite_of_ncard_ne_zero (by linarith only [hX3]))] at h
+    omega
 
   set c := center X with hc
   wlog hc' : c = 0
   · let T := (· - c) '' X
-    specialize this (X := T) (d := d)
+    have hT : T.ncard = X.ncard := Set.ncard_image_of_injective _ sub_left_injective
+    specialize this (X := T)
     specialize this (by
       rw [isBounded_image_iff]
       rw [isBounded_iff] at hX
@@ -844,40 +829,33 @@ theorem radius_le_sqrt_of_card_le
           · rw [dist_eq_norm]
         _ = ‖c‖ + dist x y + ‖c‖ := by (iterate 2 congr 1) <;> simp
         _ ≤ ‖c‖ + R + ‖c‖ := by gcongr 2; exact hR hx hy)
-    specialize this (by
-      convert hX2 using 1
-      apply ENat.card_image_of_injective
-      simpa [sub_eq_add_neg] using add_left_injective (-c))
-    specialize this (by
-      convert hX3 using 1
-      apply ENat.card_image_of_injective
-      simpa [sub_eq_add_neg] using add_left_injective (-c))
+    specialize this (by simpa [hT] using hX2)
+    specialize this (by simpa [hT] using hX3)
     specialize this (by simpa [T] using hX4)
     specialize this rfl
     specialize this (by simp [T, center_image_sub_right hX hX4, c])
     convert this using 1
     · simp [T, radius_image_sub_right]
     · congr 1
-      unfold diam
-      congr 1
-      iterate 2 rw [EMetric.diam_eq_sSup]
-      congr 1
-      ext x
-      simp [T]
+      · rw [hT]
+      · unfold diam
+        congr 1
+        iterate 2 rw [EMetric.diam_eq_sSup]
+        congr 1
+        ext x
+        simp [T]
 
   set r := radius X
   let h3 := subset hX
 
-  have h1' := (Set.finite_of_encard_le_coe hX2).fintype
+  have h1' := (Set.finite_of_ncard_ne_zero (by linarith only [hX3])).fintype
   have h1 : X.toFinset.card ≥ 2 := by
-    apply ENat.coe_le_coe.mp
-    change _ ≥ _
     convert hX3 using 1
-    simp
+    exact Eq.symm (Set.ncard_eq_toFinset_card' X)
 
   let X' := X ∩ sphere 0 r
   have hS' : X' ⊆ X := by simp [X']
-  let n := Nat.card X'
+  let n := X'.ncard
   have hn : n ≠ 0 := by
     unfold n
     suffices X'.Nonempty by
@@ -922,7 +900,7 @@ theorem radius_le_sqrt_of_card_le
     convert_to c ∈ convexHull ℝ X' using 2
     · simpa using hx4
     unfold X'
-    convert center_mem_convexHull_sphere_of_finite h1'.finite hX3 using 6 with x
+    convert center_mem_convexHull_sphere_of_finite h1'.finite hX4 using 6 with x
     simp [←hc, hc']
 
   obtain ⟨l, h6, h7, h8⟩ : ∃ (l : ℕ → ℝ),
@@ -1073,17 +1051,13 @@ theorem radius_le_sqrt_of_card_le
       field_simp
       have hn1 : n ≥ 1 := by omega
       have hn2 : n ≤ d + 1 := calc
-        Nat.card X' ≤ Nat.card X := Nat.card_mono X.toFinite hS'
-        _ ≤ d + 1 := by
-          apply ENat.coe_le_coe.mp
-          convert hX2 using 1
-          rw [←ENat.card_eq_coe_natCard, Set.encard]
+        X'.ncard ≤ X.ncard := Set.ncard_le_ncard hS' X.toFinite
+        _ = d + 1 := by omega
       rify at hn1 hn2
       nlinarith only [hn2]
 
-
 open Finset in
-theorem radius_le_sqrt_of_card_ge
+theorem radius_le_sqrt_of_encard_gt_finrank
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
     [FiniteDimensional ℝ α]
@@ -1121,11 +1095,13 @@ theorem radius_le_sqrt_of_card_ge
     replace hI : #I = d + 1 := by simpa using hI
     simp only [Set.iInter_coe_set, Set.nonempty_iInter, Set.mem_iInter]
     set c := center (Subtype.val '' I')
+    have hI' := calc
+      (Subtype.val '' I').ncard = I'.ncard := Set.ncard_image_of_injOn Set.injOn_subtype_val
+      _ = d + 1 := by simpa [I'] using hI
     have hc : radius (Subtype.val '' I') ≤ _ :=
-      radius_le_sqrt_of_card_le (IsBounded.subset hX (Subtype.coe_image_subset X I))
-        (calc
-          _ ≤ I'.encard := by apply Set.encard_image_le
-          _ = _ := by simpa [I'] using ENat.coe_inj.mpr hI)
+      radius_le_sqrt_of_isBounded_nonempty_finite
+        (IsBounded.subset hX (Subtype.coe_image_subset X I)) (by simp [hI'])
+    rw [hI'] at hc
     have hc' := subset (IsBounded.subset hX (Subtype.coe_image_subset X I))
     rw [Set.image_subset_iff] at hc'
     use c
@@ -1133,7 +1109,6 @@ theorem radius_le_sqrt_of_card_ge
     specialize hc' hi2
     suffices dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (X) by simpa [F] using this
     replace hc : dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (Subtype.val '' I') := by
-      simp at hc'
       simpa [dist_comm] using hc'.trans hc
     apply le_trans hc
     gcongr 1
@@ -1146,11 +1121,24 @@ theorem radius_le_sqrt_of_isBounded
     {d : ℕ} {X : Set (EuclideanSpace ℝ (Fin d))}
     (hX : IsBounded X) :
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
-  obtain h | h : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
-  · exact radius_le_sqrt_of_card_le hX h
-  · have h2 := radius_le_sqrt_of_card_ge hX
-    simp only [finrank_euclideanSpace, Fintype.card_fin] at h2
-    exact h2 h
+  obtain h2 | h2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
+  · by_cases h1 : X = ∅
+    · simp [h1]
+    rw [←X.ncard_eq_zero (Set.finite_of_encard_le_coe h2)] at h1
+    have := radius_le_sqrt_of_isBounded_nonempty_finite hX (by omega)
+    apply le_trans this
+    gcongr 2
+    replace h2 : X.ncard ≤ d + 1 := by
+      apply ENat.coe_le_coe.mp
+      convert h2 using 1
+      simp [Set.ncard, Set.finite_of_encard_le_coe h2]
+    replace h2 : X.ncard - 1 ≤ d := by omega
+    rify at h2
+    field_simp
+    nlinarith only [h2]
+  · have h3 := radius_le_sqrt_of_encard_gt_finrank hX
+    simp only [finrank_euclideanSpace, Fintype.card_fin] at h3
+    exact h3 h2
 
 /-- Jung's theorem. A bounded set in `ℝ^d` is contained in a closed ball
 of radius √(d / (2d + 2)) times its diameter. -/
