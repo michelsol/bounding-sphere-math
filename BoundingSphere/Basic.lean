@@ -793,15 +793,16 @@ theorem encard_sphere_ge_two_of_finite
 
 
 open Finset in
-theorem radius_le_sqrt_of_isBounded_nonempty_finite
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    [Inhabited α] [ProperSpace α] [DecidableEq α]
-    (hX : IsBounded X) (hX2 : X.ncard ≥ 1) :
+theorem radius_le_sqrt_of_finite
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α] [DecidableEq α]
+    (hX2 : X.Finite) :
     let d := X.ncard - 1
     radius X ≤ √(d / (2 * d + 2) : ℝ) * diam X := by
 
   intro d
-  obtain hX3 | hX3 : X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
+  obtain hX3 | hX3 | hX3 : X.ncard = 0 ∨ X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
+  · rw [Set.ncard_eq_zero hX2] at hX3
+    simp [hX3]
   · have ⟨a, ha⟩ := Set.ncard_eq_one.mp hX3
     simp [ha, radius_singleton]
 
@@ -815,25 +816,11 @@ theorem radius_le_sqrt_of_isBounded_nonempty_finite
   · let T := (· - c) '' X
     have hT : T.ncard = X.ncard := Set.ncard_image_of_injective _ sub_left_injective
     specialize this (X := T)
-    specialize this (by
-      rw [isBounded_image_iff]
-      rw [isBounded_iff] at hX
-      obtain ⟨R, hR⟩ := hX
-      use ‖c‖ + R + ‖c‖
-      intro x hx y hy
-      calc
-        dist (x - c) (y - c) ≤ dist (x - c) x + dist x y + dist y (y - c) := by apply dist_triangle4
-        _ = ‖(x - c) - x‖ + dist x y + ‖y - (y - c)‖ := by
-          congr 2
-          · rw [dist_eq_norm]
-          · rw [dist_eq_norm]
-        _ = ‖c‖ + dist x y + ‖c‖ := by (iterate 2 congr 1) <;> simp
-        _ ≤ ‖c‖ + R + ‖c‖ := by gcongr 2; exact hR hx hy)
-    specialize this (by simpa [hT] using hX2)
+    specialize this (Set.Finite.image (· - c) hX2)
     specialize this (by simpa [hT] using hX3)
     specialize this (by simpa [T] using hX4)
     specialize this rfl
-    specialize this (by simp [T, center_image_sub_right hX hX4, c])
+    specialize this (by simp [T, center_image_sub_right hX2.isBounded hX4, c])
     convert this using 1
     · simp [T, radius_image_sub_right]
     · congr 1
@@ -845,10 +832,11 @@ theorem radius_le_sqrt_of_isBounded_nonempty_finite
         ext x
         simp [T]
 
+  have hX : IsBounded X := hX2.isBounded
   set r := radius X
   let h3 := subset hX
 
-  have h1' := (Set.finite_of_ncard_ne_zero (by linarith only [hX3])).fintype
+  have h1' := hX2.fintype
   have h1 : X.toFinset.card ≥ 2 := by
     convert hX3 using 1
     exact Eq.symm (Set.ncard_eq_toFinset_card' X)
@@ -1098,9 +1086,7 @@ theorem radius_le_sqrt_of_encard_gt_finrank
     have hI' := calc
       (Subtype.val '' I').ncard = I'.ncard := Set.ncard_image_of_injOn Set.injOn_subtype_val
       _ = d + 1 := by simpa [I'] using hI
-    have hc : radius (Subtype.val '' I') ≤ _ :=
-      radius_le_sqrt_of_isBounded_nonempty_finite
-        (IsBounded.subset hX (Subtype.coe_image_subset X I)) (by simp [hI'])
+    have hc : radius (Subtype.val '' I') ≤ _ := radius_le_sqrt_of_finite (Set.toFinite _)
     rw [hI'] at hc
     have hc' := subset (IsBounded.subset hX (Subtype.coe_image_subset X I))
     rw [Set.image_subset_iff] at hc'
@@ -1122,11 +1108,7 @@ theorem radius_le_sqrt_of_isBounded
     (hX : IsBounded X) :
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
   obtain h2 | h2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
-  · by_cases h1 : X = ∅
-    · simp [h1]
-    rw [←X.ncard_eq_zero (Set.finite_of_encard_le_coe h2)] at h1
-    have := radius_le_sqrt_of_isBounded_nonempty_finite hX (by omega)
-    apply le_trans this
+  · apply le_trans (radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe h2))
     gcongr 2
     replace h2 : X.ncard ≤ d + 1 := by
       apply ENat.coe_le_coe.mp
