@@ -839,78 +839,26 @@ theorem radius_le_sqrt_of_finite
     convert hX3 using 1
     exact Eq.symm (Set.ncard_eq_toFinset_card' X)
 
-  let X' := X ∩ sphere 0 r
-  have hS' : X' ⊆ X := by simp [X']
-  let n := X'.ncard
+  have := Fintype.ofFinite (X ∩ sphere 0 r : Set α)
+  let X' : Finset α := (X ∩ sphere 0 r : Set α).toFinset
+  have hX'1 : X'.Nonempty := by simpa [X', hc] using nonempty_sphere_of_finite h1'.finite hX4
+  have hS' : X' ⊆ X.toFinset := by simp [X']
+
+  let n := #X'
   have hn : n ≠ 0 := by
-    unfold n
-    suffices X'.Nonempty by
-      contrapose! this
-      have h2 := Set.Finite.subset h1'.finite hS'
-      exact (Set.ncard_eq_zero h2).mp this
-    have := nonempty_sphere_of_finite h1'.finite hX4
-    convert this using 3 with x
-    simp [hc]
+    by_contra! hn
+    rw [card_eq_zero] at hn
+    simp [hn] at hX'1
 
-  let x' : Icc 1 n ≃ X' :=
-    ((Icc 1 n).equivFinOfCardEq (by simp [n])).trans (Finite.equivFinOfCardEq rfl).symm
-  let y k : Icc 1 n := if hk : k ∈ Icc 1 n then ⟨k, hk⟩ else ⟨1, by simp; omega⟩
-  let x := Subtype.val ∘ x' ∘ y
-  have hy1 : Set.MapsTo y (Icc 1 n) .univ := by intro k hk; simp
-  have hx'1 : Set.MapsTo x'.toFun .univ .univ := by simp
-  have hval1 : Set.MapsTo (Subtype.val : X' → _) .univ X' := by simp
-  have hx1 : Set.MapsTo x (Icc 1 n) X' := hval1.comp (hx'1.comp hy1)
-  have hx2 : Set.InjOn x (Icc 1 n) := by
-    have hy2 : Set.InjOn y (Icc 1 n) := by
-      intro i hi j hj hij
-      unfold y at hij
-      split_ifs at hij with g1 g2 g2
-      all_goals simp at hi hj hij g1 g2; omega
-    have hx'2 : Set.InjOn x'.toFun .univ := x'.injective.injOn
-    have hval2 : Set.InjOn (Subtype.val : X' → _) .univ := by simp
-    exact hval2.comp (hx'2.comp hy2 hy1) (hx'1.comp hy1)
-  have hx3 : Set.SurjOn x (Icc 1 n) X' := by
-    have hy3 : Set.SurjOn y (Icc 1 n) .univ := by
-      intro ⟨z, hz⟩ hz2
-      simp [y] at hz ⊢
-      use z
-      split_ifs
-      simp
-      omega
-    have hx'3 : Set.SurjOn x'.toFun .univ .univ := x'.surjective.surjOn
-    have hval3 : Set.SurjOn (Subtype.val : X' → _) .univ X' := by simp [Set.SurjOn]
-    exact hval3.comp (hx'3.comp hy3)
-  have hx4 : x '' (Icc 1 n) = X' := hx3.image_eq_of_mapsTo hx1
+  have h5 : center X ∈ convexHull ℝ X' := by
+    simpa [X', hc] using center_mem_convexHull_sphere_of_finite hX2 hX4
 
-  have h5 : center X ∈ convexHull ℝ ((Icc 1 n).image x) := by
-    convert_to center X ∈ convexHull ℝ X' using 2
-    · simpa using hx4
-    · simpa [hc] using center_mem_convexHull_sphere_of_finite hX2 hX4
-
-  obtain ⟨l, h6, h7, h8⟩ : ∃ (l : ℕ → ℝ),
-      (∀ k ∈ Icc 1 n, l k ≥ 0) ∧ ∑ k ∈ Icc 1 n, l k = 1 ∧ center X = ∑ k ∈ Icc 1 n, l k • x k := by
+  obtain ⟨l, h6, h7, h8⟩ : ∃ (l : α → ℝ),
+      (∀ k ∈ X', l k ≥ 0) ∧ ∑ x ∈ X', l x = 1 ∧ center X = ∑ x ∈ X', l x • x := by
     rw [mem_convexHull'] at h5
     obtain ⟨w, g1, g2, g3⟩ := h5
-    use w ∘ x
-    split_ands
-    · intro k hk
-      exact g1 (x k) (mem_image_of_mem _ hk)
-    · convert g2 using 1
-      apply sum_nbij x
-      · intro k hk; exact mem_image_of_mem _ hk
-      · exact hx2
-      · convert hx3 using 1
-        simpa using hx4
-      · simp
-    · symm
-      convert g3 using 1
-      apply sum_nbij x
-      · intro k hk; exact mem_image_of_mem _ hk
-      · exact hx2
-      · convert hx3 using 1
-        simpa using hx4
-      · intro k hk
-        congr 1
+    use w
+    exact ⟨fun k hk => g1 k (by simpa using hk), g2, g3.symm⟩
 
   have h8' : diam X > 0 := by
     let a : Fin (Fintype.card X) ↪ X := h1'.equivFin.symm.toEmbedding
@@ -922,92 +870,82 @@ theorem radius_le_sqrt_of_finite
       0 < dist x0 x1 := by apply dist_pos.mpr; exact x
       _ ≤ diam X := dist_le_diam_of_mem hX x0.2 x1.2
 
-  have h9 (i : ℕ) (hi : i ∈ Icc 1 n) := by
-    simp at hi
-    exact calc
-    1 - l i = ∑ k ∈ Icc 1 n, l k - l i := by rw [h7]
-    _ = ∑ k ∈ Icc 1 n \ {i}, l k + l i - l i := by
-      have h : {i} ⊆ Icc 1 n := by intro _; simp; omega
+  have h9 (i : α) (hi : i ∈ X') := calc
+    1 - l i = ∑ k ∈ X', l k - l i := by rw [h7]
+    _ = ∑ k ∈ X' \ {i}, l k + l i - l i := by
+      have h : {i} ⊆ X' := by simpa using hi
       simp [←sum_sdiff h]
-    _ = ∑ k ∈ Icc 1 n \ {i}, l k * 1 := by ring_nf
-    _ ≥ ∑ k ∈ Icc 1 n \ {i}, l k * (‖x k - x i‖ ^ 2 / diam X ^ 2) := by
+    _ = ∑ k ∈ X' \ {i}, l k * 1 := by ring_nf
+    _ ≥ ∑ k ∈ X' \ {i}, l k * (‖k - i‖ ^ 2 / diam X ^ 2) := by
       gcongr 2 with k hk
-      · exact h6 k (by simp at hk ⊢; omega)
-      · suffices dist (x k) (x i) ^ 2 ≤ diam X ^ 2 by
+      · simp at hk
+        exact h6 k (by simp [hk])
+      · simp at hk
+        suffices dist k i ^ 2 ≤ diam X ^ 2 by
           field_simp
           simpa [dist_eq_norm] using this
         gcongr 1
         apply dist_le_diam_of_mem hX
-        · apply hS'
-          apply hx1
-          simp at hk ⊢
-          omega
-        · apply hS'
-          apply hx1
-          simp at hk ⊢
-          omega
-    _ = (1 / diam X ^ 2) * ∑ k ∈ Icc 1 n \ {i}, l k * ‖x k - x i‖ ^ 2 := by
+        · exact Set.mem_toFinset.mp (hS' hk.left)
+        · exact Set.mem_toFinset.mp (hS' hi)
+    _ = (1 / diam X ^ 2) * ∑ k ∈ X' \ {i}, l k * ‖k - i‖ ^ 2 := by
       rw [mul_sum]
       congr! 1 with k hk
       field_simp
-    _ = (1 / diam X ^ 2) * ∑ k ∈ Icc 1 n, l k * ‖x k - x i‖ ^ 2 := by
+    _ = (1 / diam X ^ 2) * ∑ k ∈ X', l k * ‖k - i‖ ^ 2 := by
       congr 1
-      have h : {i} ⊆ Icc 1 n := by intro _; simp; omega
+      have h : {i} ⊆ X' := by simpa using hi
       simp [←sum_sdiff h]
-    _ = (1 / diam X ^ 2) * ∑ k ∈ Icc 1 n,
-          (l k * ‖x k‖ ^ 2 + l k * ‖x i‖ ^ 2 - 2 * (l k * ⟪x k, x i⟫_ℝ)) := by
+    _ = (1 / diam X ^ 2) * ∑ k ∈ X',
+          (l k * ‖k‖ ^ 2 + l k * ‖i‖ ^ 2 - 2 * (l k * ⟪k, i⟫_ℝ)) := by
       congr! 2 with k hk
       rw [norm_sub_sq_real]
       ring
     _ = (1 / diam X ^ 2) * (
-          ∑ k ∈ Icc 1 n, l k * ‖x k‖ ^ 2 + ∑ k ∈ Icc 1 n, l k * ‖x i‖ ^ 2 -
-          2 * ∑ k ∈ Icc 1 n, l k * ⟪x k, x i⟫_ℝ) := by
+          ∑ k ∈ X', l k * ‖k‖ ^ 2 + ∑ k ∈ X', l k * ‖i‖ ^ 2 -
+          2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
       congr 1
       conv_lhs => rw [sum_sub_distrib, sum_add_distrib]
       congr 2
       rw [mul_sum]
     _ = (1 / diam X ^ 2) * (
-          ∑ k ∈ Icc 1 n, l k * r ^ 2 + ∑ k ∈ Icc 1 n, l k * r ^ 2 -
-          2 * ∑ k ∈ Icc 1 n, l k * ⟪x k, x i⟫_ℝ) := by
+          ∑ k ∈ X', l k * r ^ 2 + ∑ k ∈ X', l k * r ^ 2 -
+          2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
       congr! 6 with k hk
-      · suffices x k ∈ X' by simp [X'] at this; simp [this]
-        apply hx1
-        simp at hk ⊢
-        omega
-      · suffices x i ∈ X' by simp [X'] at this; simp [this]
-        apply hx1
-        simp at hi ⊢
-        omega
+      · simp [X'] at hk
+        simp [hk]
+      · simp [X'] at hi
+        simp [hi]
     _ = (1 / diam X ^ 2) * (
-          r ^ 2 * ∑ k ∈ Icc 1 n, l k + r ^ 2 * ∑ k ∈ Icc 1 n, l k -
-          2 * ∑ k ∈ Icc 1 n, l k * ⟪x k, x i⟫_ℝ) := by
+          r ^ 2 * ∑ k ∈ X', l k + r ^ 2 * ∑ k ∈ X', l k -
+          2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
       congr 3
       all_goals
       · rw [mul_sum]
         congr! 1 with k hk
         ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * ∑ k ∈ Icc 1 n, l k * ⟪x k, x i⟫_ℝ) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
       congr 2
       rw [h7]
       ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ k ∈ Icc 1 n, l k * ⟪x k, x i⟫_ℝ)) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ k ∈ X', l k * ⟪k, i⟫_ℝ)) := by
       ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ k ∈ Icc 1 n, ⟪l k • x k, x i⟫_ℝ)) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ k ∈ X', ⟪l k • k, i⟫_ℝ)) := by
       congr! 4 with k hk
       rw [real_inner_smul_left]
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (⟪∑ k ∈ Icc 1 n, l k • x k, x i⟫_ℝ)) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (⟪∑ k ∈ X', l k • k, i⟫_ℝ)) := by
       congr! 4 with k hk
       rw [sum_inner]
     _ = (1 / diam X ^ 2) * (2 * r ^ 2) := by simp [←h8, hc]
     _ = 2 * r ^ 2 / diam X ^ 2 := by field_simp
 
   have h10 := calc
-    n - 1 = ∑ i ∈ Icc 1 n, 1 - ∑ i ∈ Icc 1 n, l i := by simp [h7]
-    _ = ∑ i ∈ Icc 1 n, (1 - l i) := by rw [sum_sub_distrib]
-    _ ≥ ∑ i ∈ Icc 1 n, (2 * r ^ 2 / diam X ^ 2) := by
+    n - 1 = ∑ i ∈ X', 1 - ∑ i ∈ X', l i := by simp [h7, n]
+    _ = ∑ i ∈ X', (1 - l i) := by rw [sum_sub_distrib]
+    _ ≥ ∑ i ∈ X', (2 * r ^ 2 / diam X ^ 2) := by
       gcongr 2 with i hi
       exact h9 i hi
-    _ = n * (2 * r ^ 2 / diam X ^ 2) := by simp [sum_const]
+    _ = n * (2 * r ^ 2 / diam X ^ 2) := by simp [sum_const, n]
     _ = 2 * n * r ^ 2 / diam X ^ 2 := by ring
 
   exact calc
@@ -1033,12 +971,12 @@ theorem radius_le_sqrt_of_finite
     _ ≤ √(d / (2 * d + 2)) * diam X := by
       gcongr 2
       field_simp
-      have hn1 : n ≥ 1 := by omega
-      have hn2 : n ≤ d + 1 := calc
-        X'.ncard ≤ X.ncard := Set.ncard_le_ncard hS' X.toFinite
+      have : n ≤ d + 1 := calc
+        #X' ≤ #X.toFinset := Finset.card_le_card hS'
+        _ = X.ncard := Eq.symm (Set.ncard_eq_toFinset_card' X)
         _ = d + 1 := by omega
-      rify at hn1 hn2
-      nlinarith only [hn2]
+      rify at this
+      nlinarith only [this]
 
 open Finset in
 theorem radius_le_sqrt_of_encard_gt_finrank
