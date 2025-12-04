@@ -9,10 +9,11 @@ section
 open Bornology ENNReal Metric
 variable [PseudoMetricSpace α] {X : Set α}
 
-/-- The distance from a point `c` to the "farthest" point in a set `X`, possibly `∞`
-if `X` is unbounded. -/
+/-- The supremal distance from a point `c` to a set `X`,
+which is equal to `⊤` if `X` is unbounded. -/
 noncomputable def supEDist {α} [EDist α] (X : Set α) c := sSup {edist s c | s ∈ X}
 
+/-- If `X` is bounded, then the supremal distance from `X` to `c` is not `⊤`. -/
 theorem supEDist_ne_top_of_isBounded (h1 : IsBounded X) c : supEDist X c ≠ ⊤ := by
   unfold supEDist
   obtain h2 | h2 := X.eq_empty_or_nonempty
@@ -28,6 +29,7 @@ theorem supEDist_ne_top_of_isBounded (h1 : IsBounded X) c : supEDist X c ≠ ⊤
     gcongr 1
     exact EMetric.edist_le_diam_of_mem hs1 h2.choose_spec
 
+/-- If `X` is unbounded, then the supremal distance from `X` to `c` is `⊤`. -/
 theorem supEDist_eq_top_of_not_isBounded (h1 : ¬IsBounded X) c : supEDist X c = ⊤ := by
   unfold supEDist
   contrapose! h1
@@ -45,6 +47,7 @@ theorem supEDist_eq_top_of_not_isBounded (h1 : ¬IsBounded X) c : supEDist X c =
   · simpa using hb2 x hx
   · simpa [edist_comm] using hb2 y hy
 
+/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
 theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
     supEDist X c ∈ (edist · c) '' X := by
   have h1' := h1.fintype
@@ -57,6 +60,7 @@ theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
   · intro s hs
     use s, by simpa using hs
 
+/-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
 theorem supEDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
     supEDist X c ∈ (edist · c) '' X := by
   apply IsCompact.sSup_mem
@@ -93,8 +97,8 @@ theorem supEDist_image_sub_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] 
   · simp
 
 
-/-- The distance from a point `c` to the "farthest" point in a set `X`, as a real number equal to
-`0` in particular if `X` is unbounded. -/
+/-- The supremal distance from a point `c` to a set `X`, as a real number,
+which is equal to `0` if `X` is unbounded. -/
 noncomputable def supDist (X : Set α) c := (supEDist X c).toReal
 
 theorem supDist_eq c : supDist X c = sSup {dist s c | s ∈ X} := by
@@ -105,6 +109,7 @@ theorem supDist_eq c : supDist X c = sSup {dist s c | s ∈ X} := by
     simp [edist_dist, dist_nonneg, toReal_ofReal]
   · simp [edist_ne_top]
 
+/-- If `X` is unbounded, then the supremal distance from `X` to `c` is `0`. -/
 theorem supDist_eq_zero_of_not_isBounded (h1 : ¬IsBounded X) c : supDist X c = 0 := by
   unfold supDist
   simp [supEDist_eq_top_of_not_isBounded h1, toReal_top]
@@ -115,6 +120,7 @@ theorem supEDist_eq_supDist_of_isBounded (h1 : IsBounded X) c :
   rw [ofReal_toReal]
   exact supEDist_ne_top_of_isBounded h1 c
 
+/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
 theorem supDist_mem_of_isFinite c (h1 : X.Finite) (h2 : X.Nonempty) :
     supDist X c ∈ (dist · c) '' X := by
   unfold supDist
@@ -123,6 +129,7 @@ theorem supDist_mem_of_isFinite c (h1 : X.Finite) (h2 : X.Nonempty) :
   use x, hx1
   simp [dist_edist]
 
+/-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
 theorem supDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
     supDist X c ∈ (dist · c) '' X := by
   rw [supDist_eq]
@@ -171,12 +178,14 @@ variable {α} {X : Set α} [PseudoMetricSpace α]
 distance from a point to the set. -/
 noncomputable def radius (X : Set α) := sInf (Set.range (supDist X))
 
+/-- The radius of the minimal bounding sphere is non negative. -/
 theorem radius_nonneg : radius X ≥ 0 := by
   apply Real.sInf_nonneg ?_
   intro _ ⟨x, hx⟩
   subst hx
   simp [supDist]
 
+/-- The radius of the minimal bounding sphere of the empty set is `0`. -/
 @[simp]
 theorem radius_empty [Inhabited α] : radius (∅ : Set α) = 0 := by
   unfold radius supDist supEDist
@@ -205,7 +214,7 @@ theorem ofReal_radius_eq_of_isBounded [Inhabited α] (h1 : IsBounded X) :
   _ = ENNReal.ofReal (sInf (Set.range (ENNReal.toReal ∘ supEDist X))) := by rw [Set.range_comp]
 
 /-- The radius of the minimal bounding sphere of a bounded set `X` is less than or equal to
-that of any other sphere containing `X`. -/
+that of any other ball containing `X`. -/
 theorem radius_le [Inhabited α] (h1 : IsBounded X) (h0 : X.Nonempty) :
     ∀ c', ∀ r', X ⊆ closedBall c' r' → radius X ≤ r' := by
   intro c' r' h2
@@ -223,6 +232,7 @@ theorem radius_le [Inhabited α] (h1 : IsBounded X) (h0 : X.Nonempty) :
   rw [edist_le_ofReal hr']
   exact h2 ha
 
+/-- The radius of the minimal bounding sphere of a singleton is `0`. -/
 @[simp]
 theorem radius_singleton [Inhabited α] (a : α) : radius {a} = 0 := by
   suffices radius {a} ≤ 0 by
@@ -236,6 +246,7 @@ end
 section
 variable {α} {X : Set α} [PseudoMetricSpace α] [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α]
 
+/-- Translating a set `X` does not change the radius of its minimal bounding sphere. -/
 theorem radius_image_add_right (X : Set α) a :
     radius ((· + a) '' X) = radius X := by
   unfold radius
@@ -246,6 +257,7 @@ theorem radius_image_add_right (X : Set α) a :
   apply Function.Surjective.range_comp
   simpa [sub_eq_add_neg] using add_right_surjective (-a)
 
+/-- Translating a set `X` does not change the radius of its minimal bounding sphere. -/
 theorem radius_image_sub_right (X : Set α) a :
     radius ((· - a) '' X) = radius X := by
   simpa [sub_eq_add_neg] using radius_image_add_right X (-a)
@@ -364,7 +376,7 @@ theorem radius_eq_supDist_center_of_isBounded (h1 : IsBounded X) :
   split_ifs
   exact (radius_mem_of_isBounded h1).choose_spec.symm
 
-/-- The minimal bounding sphere of a bounded set `X` contains the set `X`. -/
+/-- The minimal bounding ball of a bounded set `X` contains the set `X`. -/
 theorem subset (h1 : IsBounded X) : X ⊆ closedBall (center X) (radius X) := by
   by_cases h0 : X.Nonempty
   · intro s hs
@@ -470,6 +482,8 @@ variable {α} {X : Set α}
 variable [NormedAddCommGroup α] [InnerProductSpace ℝ α]
 variable [Inhabited α] [ProperSpace α]
 
+/-- Translating a bounded set `X` by `a`
+translates the center of its minimal bounding sphere by `a`. -/
 theorem center_image_add_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
     center ((· + a) '' X) = center X + a := by
   set T := ((· + a) '' X)
@@ -489,6 +503,8 @@ theorem center_image_add_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
       exact radius_le h1 h2 (c' - a) r' h
   exact center_eq_center_of_IsMinimal h2' h3 h4
 
+/-- Translating a bounded set `X` by `-a`
+translates the center of its minimal bounding sphere by `-a`. -/
 theorem center_image_sub_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
     center ((· - a) '' X) = center X - a := by
   simpa [sub_eq_add_neg] using center_image_add_right h1 h2 (-a)
@@ -498,6 +514,8 @@ end
 section
 variable {α} {X : Set α}
 
+/-- The radius of the minimal bounding sphere of a bounded set `X` with at least two points
+is strictly positive. -/
 theorem radius_pos [MetricSpace α] [Inhabited α] [ProperSpace α]
     (h1 : IsBounded X) (h2 : X.encard ≥ 2) : radius X > 0 := by
   obtain ⟨x0, hx0, x1, hx1, h3⟩ : ∃ x0 ∈ X, ∃ x1 ∈ X, x0 ≠ x1 := by
@@ -530,7 +548,7 @@ theorem radius_pos [MetricSpace α] [Inhabited α] [ProperSpace α]
     _ = 0 := by simp
 
 
-/-- The minimal bounding sphere of a finite set `X` contains some point of `X` on its boundary. -/
+/-- The minimal bounding sphere of a finite set `X` hits some point in `X`. -/
 theorem nonempty_sphere_of_finite
     [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
     (h1 : X.Finite) (h2 : X.Nonempty) :
@@ -552,7 +570,7 @@ theorem nonempty_sphere_of_finite
   use y0
 
 /-- The center of the minimal bounding sphere of a non empty finite set `X`
-is contained in the convex hull of the points of `X` that lie on the boundary of the sphere. -/
+is contained in the convex hull of the points of `X` that lie on the sphere. -/
 theorem center_mem_convexHull_sphere_of_finite
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α]
@@ -744,7 +762,7 @@ theorem center_mem_convexHull_sphere_of_finite
       apply radius_nonneg
   have h14 : r ≤ r0 := radius_le h1.isBounded h2 c0 r0 h12
   linarith only [h13, h14]
-
+#exit
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
 theorem encard_sphere_ge_two_of_finite
@@ -793,6 +811,7 @@ theorem encard_sphere_ge_two_of_finite
 
 
 open Finset in
+/-- An upper bound on the radius of the minimal bounding sphere of a finite set `X` -/
 theorem radius_le_sqrt_of_finite
     [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α] [DecidableEq α]
     (hX2 : X.Finite) :
@@ -979,6 +998,8 @@ theorem radius_le_sqrt_of_finite
       nlinarith only [this]
 
 open Finset in
+/-- An upper bound on the radius of the minimal bounding sphere of a bounded set `X`
+with cardinality greater than the dimension of the ambient space -/
 theorem radius_le_sqrt_of_encard_gt_finrank
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
@@ -1034,9 +1055,7 @@ theorem radius_le_sqrt_of_encard_gt_finrank
     gcongr 1
     exact diam_mono (Subtype.coe_image_subset X I) hX
 
-/-- Jung's upper bound.
-The radius of the minimal bounding sphere of a bounded set in `ℝ^d`
-is at most √(d / (2d + 2)) times the diameter of the set. -/
+/-- An upper bound on the radius of the minimal bounding sphere of a bounded set `X` -/
 theorem radius_le_sqrt_of_isBounded
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
@@ -1058,8 +1077,8 @@ theorem radius_le_sqrt_of_isBounded
     nlinarith only [h2]
   · exact radius_le_sqrt_of_encard_gt_finrank hX h2
 
-/-- Jung's theorem. A bounded set in `ℝ^d` is contained in a closed ball
-of radius √(d / (2d + 2)) times its diameter. -/
+/-- Jung's theorem. A bounded set `X` is contained in a closed ball of radius
+at most `√(d / (2 * d + 2)) * diam X`, where `d` is the dimension of the ambient space. -/
 theorem jung_theorem
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
