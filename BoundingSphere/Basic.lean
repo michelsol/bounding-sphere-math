@@ -553,7 +553,6 @@ theorem nonempty_sphere_of_finite
     [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
     (h1 : X.Finite) (h2 : X.Nonempty) :
     (X ∩ sphere (center X) (radius X)).Nonempty := by
-  have hr := radius_le h1.isBounded h2
   have hc := subset h1.isBounded
   set c := center X
   set r := radius X
@@ -561,7 +560,7 @@ theorem nonempty_sphere_of_finite
   dsimp at hy0'
   set r' := supDist X c
   have h3 : r ≤ r' := by
-    apply hr c r'
+    apply radius_le h1.isBounded h2 c r'
     intro s hs
     exact dist_le_supDist h1.isBounded c hs
   have h4 : r' ≤ r := by simpa [hy0'] using hc hy0
@@ -574,90 +573,79 @@ is contained in the convex hull of the points of `X` that lie on the sphere. -/
 theorem center_mem_convexHull_sphere_of_finite
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α]
-    (h1 : X.Finite) (h2 : X.Nonempty) :
+    (hX1 : X.Finite) (hX2 : X.Nonempty) :
     center X ∈ convexHull ℝ (X ∩ sphere (center X) (radius X)) := by
-  have h4 := subset h1.isBounded
-  have h5 := radius_le h1.isBounded h2
   set c := center X
   set r := radius X
-  have h1' := h1.fintype
-  set Xs := {x ∈ X | dist x c = r}
-  by_contra! h6
-  obtain ⟨v, hv, h7⟩ : ∃ v : α, v ≠ 0 ∧
-      ∀ x ∈ convexHull ℝ Xs, ⟪v, x - c⟫_ℝ > 0 := by
+  -- Denote `Y` the points of `X` that lie on the sphere
+  set Y := X ∩ sphere c r
+  have hX3 := hX1.fintype
+  have hY1 := Fintype.ofFinite Y
+  have hY2 : Y ⊆ X := by simp [Y]
+  -- By contradiction, assume that the center `c` is not in the convex hull of `Y`
+  by_contra! h1
+  -- There exists a vector `v` separating `c` from the convex hull of `Y`
+  obtain ⟨v, hv, h2⟩ : ∃ v : α, v ≠ 0 ∧ ∀ x ∈ convexHull ℝ Y, ⟪v, x - c⟫_ℝ > 0 := by
     set s : Set α := {0}
     have hs1 : Convex ℝ s := convex_singleton _
     have hs2 : IsCompact s := isCompact_singleton
-    set t := (· - c) '' convexHull ℝ (Xs)
+    set t := (· - c) '' convexHull ℝ Y
     have ht1 : Convex ℝ t := by
       let f := AffineMap.id ℝ _ - AffineMap.const ℝ _ c
       apply Convex.affine_image f
       apply convex_convexHull
-    have ht2 : IsCompact t := by
-      unfold t
-      apply IsCompact.image
-      · apply Set.Finite.isCompact_convexHull
-        apply Set.Finite.subset h1
-        simp [Xs]
-      · fun_prop
+    have ht2 : IsCompact t := IsCompact.image
+      (hX1.subset hY2).isCompact_convexHull (continuous_sub_right c)
     have ht3 : IsClosed t := IsCompact.isClosed ht2
-    have ht4 : Xs.Nonempty := nonempty_sphere_of_finite h1 h2
+    have ht4 : Y.Nonempty := nonempty_sphere_of_finite hX1 hX2
     have ht5 : t.Nonempty := Set.image_nonempty.mpr ht4.convexHull
     have hst : Disjoint s t := by
       simp [s, t]
       intro x hx
-      contrapose! h6
+      contrapose! h1
       convert hx using 1
-      apply_fun (· + c) at h6
-      simpa using h6.symm
-    obtain ⟨f, u, v, g1, g2, g3⟩ := geometric_hahn_banach_compact_closed hs1 hs2 ht1 ht3 hst
-    let w := (InnerProductSpace.toDual ℝ α).symm f
-    have hh (x : α) : f x = ⟪w, x⟫_ℝ := by simp [w]
-    replace g1 : u > 0 := by simpa [s] using g1
-    use w
-    use by
-      by_contra! hw
-      specialize g3 ht5.choose ht5.choose_spec
-      simp [hh, hw] at g3
-      linarith only [g1, g2, g3]
-    intro x hx
-    specialize g3 (x - c) (by simp [t, hx])
-    simp [hh] at g3
-    linarith only [g1, g2, g3]
-
-  set Xint := X \ Xs
+      apply_fun (· + c) at h1
+      simpa using h1.symm
+    obtain ⟨f, u, w, hu, huw, hw⟩ := geometric_hahn_banach_compact_closed hs1 hs2 ht1 ht3 hst
+    replace hu : u > 0 := by simpa [s] using hu
+    let v := (InnerProductSpace.toDual ℝ α).symm f
+    have hf (x : α) : f x = ⟪v, x⟫_ℝ := by simp [v]
+    refine ⟨v, ?_, ?_⟩
+    · by_contra! hv
+      specialize hw ht5.choose ht5.choose_spec
+      simp [hf, hv] at hw
+      linarith only [hu, huw, hw]
+    · intro x hx
+      specialize hw (x - c) (by simp [t, hx])
+      simp [hf] at hw
+      linarith only [hu, huw, hw]
+  -- Perturb the center `c` a bit in the direction of `v`
   let c' (ε : ℝ) := c + ε • v
-  have h8 ε (hε : ε > 0) x := calc
-    ‖x - c' ε‖ ^ 2 = ‖(x - c) - ε • v‖ ^ 2 := by congr 2; module
-    _ = ‖x - c‖ ^ 2 - 2 * ε * ⟪v, x - c⟫_ℝ + ‖ε • v‖ ^ 2 := by
-      rw [norm_sub_sq_real, real_inner_comm, real_inner_smul_left]
-      ring
-    _ = ‖x - c‖ ^ 2 - 2 * ε * ⟪v, x - c⟫_ℝ + ε ^ 2 * ‖v‖ ^ 2 := by
-      congr 1
-      rw [norm_smul, mul_pow, Real.norm_of_nonneg]
-      exact hε.le
-  have h9 : Xs.toFinset.Nonempty := by
-    apply Set.toFinset_nonempty.mpr
-    apply nonempty_sphere_of_finite h1 h2
-  obtain ⟨a1, ha1, h10⟩ : ∃ a1 > 0, ∀ ε, ε > 0 → ε < a1 → ∀ x ∈ Xs, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
+  -- For a small enough perturbation, all points of `Y` are in the interior of the ball
+  obtain ⟨δY, hδY, hcY⟩ : ∃ δY > 0, ∀ ε, ε > 0 → ε < δY → ∀ x ∈ Y, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
     let δ x := ⟪v, x - c⟫_ℝ
-    let d := Xs.toFinset.inf' h9 δ
-    have hd1 xi (hxi : xi ∈ Xs) : d ≤ δ xi := Xs.toFinset.inf'_le δ (by simpa using hxi)
-    have hd2 : ∃ xi ∈ Xs, δ xi = d := by
-      convert Xs.toFinset.exists_mem_eq_inf' h9 δ using 2 with xi; simp [d]; tauto
+    have hY3 : Y.toFinset.Nonempty := Set.toFinset_nonempty.mpr (nonempty_sphere_of_finite hX1 hX2)
+    let d := Y.toFinset.inf' hY3 δ
+    have hd1 xi (hxi : xi ∈ Y) : d ≤ δ xi := Y.toFinset.inf'_le δ (by simpa using hxi)
+    have hd2 : ∃ xi ∈ Y, δ xi = d := by
+      convert Y.toFinset.exists_mem_eq_inf' hY3 δ using 2 with xi; simp [d]; tauto
     have hd3 : d > 0 := by
       obtain ⟨x0, hx0, hd⟩ := hd2
       rw [←hd]
-      unfold δ
-      apply h7 x0
+      apply h2 x0
       exact mem_convexHull_iff.mpr fun _ a _ => a hx0
     use 2 * d / ‖v‖ ^ 2, by field_simp; nlinarith only [hd3]
     intro ε hε1 hε2 xi hxi
     calc
-      _ = _ := h8 ε hε1 xi
-      _ ≤ ‖xi - c‖ ^ 2 - 2 * ε * d + ε ^ 2 * ‖v‖ ^ 2 := by
-        gcongr 3
-        exact hd1 xi hxi
+      ‖xi - c' ε‖ ^ 2 = ‖(xi - c) - ε • v‖ ^ 2 := by congr 2; module
+      _ = ‖xi - c‖ ^ 2 - 2 * ε * ⟪v, xi - c⟫_ℝ + ‖ε • v‖ ^ 2 := by
+        rw [norm_sub_sq_real, real_inner_comm, real_inner_smul_left]
+        ring
+      _ = ‖xi - c‖ ^ 2 - 2 * ε * ⟪v, xi - c⟫_ℝ + ε ^ 2 * ‖v‖ ^ 2 := by
+        congr 1
+        rw [norm_smul, mul_pow, Real.norm_of_nonneg]
+        exact hε1.le
+      _ ≤ ‖xi - c‖ ^ 2 - 2 * ε * d + ε ^ 2 * ‖v‖ ^ 2 := by gcongr 3; exact hd1 xi hxi
       _ = ‖xi - c‖ ^ 2 + (-2 * ε * d + ε ^ 2 * ‖v‖ ^ 2) := by ring
       _ < ‖xi - c‖ ^ 2 + 0 := by
         gcongr 1
@@ -667,48 +655,44 @@ theorem center_mem_convexHull_sphere_of_finite
             gcongr 1
             calc
               _ < -2 * d + (2 * d / ‖v‖ ^ 2) * ‖v‖ ^ 2 := by gcongr 2
-              _ = -2 * d + 2 * d := by
-                congr 1
-                field_simp
+              _ = -2 * d + 2 * d := by congr 1; field_simp
               _ = _ := by ring
           _ = _ := by ring
-      _ = _ := by
-        simp [Xs, dist_eq_norm] at hxi
-        simp [hxi]
-  obtain ⟨a2, ha2, h11⟩ : ∃ a2 > 0, ∀ ε, ε > 0 → ε < a2 → ∀ x ∈ Xint, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
-    have h1'' := Fintype.ofFinite Xint
-    by_cases hXint : Xint = ∅
-    · simp [hXint]; use 1; norm_num
-    replace hXint : Xint.toFinset.Nonempty := by
-      apply Set.toFinset_nonempty.mpr
-      exact Set.nonempty_iff_ne_empty.mpr hXint
-    let f ε := Xint.toFinset.sup' hXint (fun x => ‖x - c' ε‖ ^ 2)
+      _ = _ := by simp [Y] at hxi; simp [hxi]
+  -- For a small enough perturbation, all points of `X \ Y` are also in the interior of the ball
+  let Z := X \ Y
+  obtain ⟨δZ, hδZ, hcZ⟩ : ∃ δZ > 0, ∀ ε, ε > 0 → ε < δZ → ∀ x ∈ Z, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
+    have hZ0 := Fintype.ofFinite Z
+    by_cases hZ1 : Z = ∅
+    · simp [hZ1]; use 1; norm_num
+    replace hZ1 := Set.toFinset_nonempty.mpr (Set.nonempty_iff_ne_empty.mpr hZ1)
+    let f ε := Z.toFinset.sup' hZ1 (fun x => ‖x - c' ε‖ ^ 2)
     have hf : Continuous f := by apply Continuous.finset_sup'_apply; fun_prop
     replace hf : ContinuousAt f 0 := by apply hf.continuousAt
     rw [Metric.continuousAt_iff] at hf
-    have h1 : f 0 < r ^ 2 := by
+    have f0_lt : f 0 < r ^ 2 := by
       unfold f
       rw [Finset.sup'_lt_iff]
       intro x hx
       suffices dist x c ^ 2 < r ^ 2 by simpa [c', ←dist_eq_norm] using this
       rw [sq_lt_sq₀]
-      · simp [Xint] at hx
+      · simp [Z] at hx
         apply lt_of_le_of_ne
-        · exact subset h1.isBounded hx.left
+        · exact subset hX1.isBounded hx.left
         · have := hx.right
           contrapose! this
-          simp [Xs, hx.left, this]
+          simp [Y, hx.left, ←dist_eq_norm, this]
       · apply dist_nonneg
       · apply radius_nonneg
-    obtain ⟨δ, hδ, h⟩ := hf (r ^ 2 - f 0) (by linarith only [h1])
+    replace ⟨δ, hδ, hf⟩ := hf (r ^ 2 - f 0) (by linarith only [f0_lt])
     use δ, hδ
     intro ε hε1 hε2
-    simp only [dist_eq_norm] at h
-    have h' : ‖ε - 0‖ < δ := by
+    simp only [dist_eq_norm] at hf
+    have hεδ : ‖ε - 0‖ < δ := by
       rw [Real.norm_of_nonneg]
       · linarith only [hε2]
       · linarith only [hε1]
-    specialize h h'
+    specialize hf hεδ
     intro x hx
     calc
       _ ≤ f ε := by
@@ -717,51 +701,44 @@ theorem center_mem_convexHull_sphere_of_finite
         use x, by simpa using hx
       _ = (f ε - f 0) + f 0 := by ring
       _ ≤ ‖f ε - f 0‖ + f 0 := by gcongr 1; apply Real.le_norm_self
-      _ < r ^ 2 := by linarith only [h]
-  replace ⟨a3, ha3, h11⟩ : ∃ a3 > 0, ∀ ε, ε > 0 → ε < a3 → ∀ x ∈ X, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
-    use a1 ⊓ a2, lt_min ha1 ha2
+      _ < r ^ 2 := by linarith only [hf]
+  -- Thus perturbing the center by a small amout yields a smaller ball still enclosing all of `X`,
+  obtain ⟨δX, hδX, hcX⟩ : ∃ δX > 0, ∀ ε, ε > 0 → ε < δX → ∀ x ∈ X, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
+    use δY ⊓ δZ, lt_min hδY hδZ
     intro ε hε1 hε2 x hx
-    obtain h | h : x ∈ Xs ∨ x ∈ Xint := by
-      apply Set.mem_or_mem_of_mem_union
-      convert hx using 1
-      apply Set.union_diff_cancel
-      simp [Xs]
-    · apply h10 ε hε1 (calc
-          ε < a1 ⊓ a2 := hε2
-          _ ≤ a1 := by apply inf_le_left) x h
-    · apply h11 ε hε1 (calc
-          ε < a1 ⊓ a2 := hε2
-          _ ≤ a2 := by apply inf_le_right) x h
-  let ε0 := a3 / 2
-  let r0 := X.toFinset.sup' (Set.toFinset_nonempty.mpr h2) (‖· - c' ε0‖)
-  obtain ⟨x, hx, hr0⟩ := X.toFinset.exists_mem_eq_sup' (Set.toFinset_nonempty.mpr h2) (‖· - c' ε0‖)
-  let c0 := c' ε0
-  have h12 : X ⊆ closedBall c0 r0 := by
+    obtain h | h : x ∈ Y ∨ x ∈ Z := by simp [Y, Z, hx]; tauto
+    · exact hcY ε hε1 (lt_of_lt_of_le hε2 inf_le_left) x h
+    · exact hcZ ε hε1 (lt_of_lt_of_le hε2 inf_le_right) x h
+  -- Contradicting the minimality of the original ball.
+  let δ0 := δX / 2
+  obtain ⟨x, hx, hr0⟩ := X.toFinset.exists_mem_eq_sup' (Set.toFinset_nonempty.mpr hX2) (‖· - c' δ0‖)
+  set r0 := X.toFinset.sup' (Set.toFinset_nonempty.mpr hX2) (‖· - c' δ0‖)
+  have h3 : X ⊆ closedBall (c' δ0) r0 := by
     intro x hx
     simp only [mem_closedBall, dist_eq_norm, r0]
     rw [Finset.le_sup'_iff]
     use x, by simpa using hx
-  have h13 := calc
+  have h4 : r ≤ r0 := radius_le hX1.isBounded hX2 (c' δ0) r0 h3
+  have h5 := calc
     r0 = √(r0 ^ 2) := by
       rw [Real.sqrt_sq]
       unfold r0
       rw [Finset.le_sup'_iff]
-      use h2.choose, by simpa using h2.choose_spec
+      use hX2.choose, by simpa using hX2.choose_spec
       apply norm_nonneg
     _ < √(r ^ 2) := by
       apply Real.sqrt_lt_sqrt
       · apply sq_nonneg
-      unfold r0
       rw [hr0]
-      apply h11 ε0
-      · unfold ε0; linarith only [ha3]
-      · unfold ε0; linarith only [ha3]
+      apply hcX δ0
+      · unfold δ0; linarith only [hδX]
+      · unfold δ0; linarith only [hδX]
       · simpa using hx
     _ = r := by
       rw [Real.sqrt_sq]
       apply radius_nonneg
-  have h14 : r ≤ r0 := radius_le h1.isBounded h2 c0 r0 h12
-  linarith only [h13, h14]
+  linarith only [h4, h5]
+
 #exit
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
