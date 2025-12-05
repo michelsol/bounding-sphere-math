@@ -739,7 +739,6 @@ theorem center_mem_convexHull_sphere_of_finite
       apply radius_nonneg
   linarith only [h4, h5]
 
-#exit
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
 theorem encard_sphere_ge_two_of_finite
