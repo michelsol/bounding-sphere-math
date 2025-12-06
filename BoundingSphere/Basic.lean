@@ -884,11 +884,9 @@ theorem radius_le_sqrt_of_finite
       · rw [mul_sum]
         congr! 1 with xk hk
         ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ)) := by
       congr 2
       rw [hl2]
-      ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ)) := by
       ring
     _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ xk ∈ Y, ⟪l xk • xk, xi⟫_ℝ)) := by
       congr! 4 with xk hk
@@ -910,7 +908,7 @@ theorem radius_le_sqrt_of_finite
     r = √(r ^ 2) := by
       rw [Real.sqrt_sq]
       calc
-        0 ≤ _ := by apply dist_nonneg
+        0 ≤ _ := dist_nonneg
         _ ≤ r := subset hX1.isBounded hX3.choose_spec
     _ ≤ √(((n - 1) / (2 * n)) * diam X ^ 2) := by gcongr 1; field_simp at ineq ⊢; simpa using ineq
     _ = √((n - 1) / (2 * n)) * √(diam X ^ 2) := by rw [Real.sqrt_mul]; field_simp; simp; omega
@@ -926,65 +924,51 @@ theorem radius_le_sqrt_of_finite
       nlinarith only [this]
 
 open Finset in
-/-- An upper bound on the radius of the minimal bounding sphere of a bounded set
-with cardinality greater than the dimension of the ambient space. -/
-theorem radius_le_sqrt_of_encard_gt_finrank
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    [Inhabited α] [ProperSpace α] [DecidableEq α]
-    [FiniteDimensional ℝ α]
-    (hX : IsBounded X) (hX2 : X.encard ≥ Module.finrank ℝ α + 1) :
-    let d := Module.finrank ℝ α
-    radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
-  intro d
-
-  let F (x : X) := closedBall x.val (√(d / (2 * d + 2) : ℝ) * diam X)
-  suffices (⋂ i, F i).Nonempty by
-    refine radius_le hX ?_ this.choose _ ?_
-    · apply Set.encard_ne_zero.mp; by_contra! h1; simp [h1] at hX2
-    · simpa [F, mem_closedBall, dist_comm] using this.choose_spec
-
-  apply Convex.helly_theorem_compact (𝕜 := ℝ)
-  · simpa using hX2
-  · intro ⟨i, hi⟩
-    apply convex_closedBall
-  · intro ⟨i, hi⟩
-    apply isCompact_closedBall
-  · intro I hI
-    let I' := SetLike.coe I
-    replace hI : #I = d + 1 := by simpa using hI
-    simp only [Set.iInter_coe_set, Set.nonempty_iInter, Set.mem_iInter]
-    set c := center (Subtype.val '' I')
-    have hI' := calc
-      (Subtype.val '' I').ncard = I'.ncard := Set.ncard_image_of_injOn Set.injOn_subtype_val
-      _ = d + 1 := by simpa [I'] using hI
-    have hc : radius (Subtype.val '' I') ≤ _ := radius_le_sqrt_of_finite (Set.toFinite _) hI'.le
-    have hc' := subset (IsBounded.subset hX (Subtype.coe_image_subset X I))
-    rw [Set.image_subset_iff] at hc'
-    use c
-    intro i hi hi2
-    specialize hc' hi2
-    suffices dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (X) by simpa [F] using this
-    replace hc : dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (Subtype.val '' I') := by
-      simpa [dist_comm] using hc'.trans hc
-    apply le_trans hc
-    gcongr 1
-    exact diam_mono (Subtype.coe_image_subset X I) hX
-
 /-- An upper bound on the radius of the minimal bounding sphere of a bounded set `X` -/
 theorem radius_le_sqrt_of_isBounded
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
     [FiniteDimensional ℝ α]
-    (hX : IsBounded X) :
+    (hX1 : IsBounded X) :
     let d := Module.finrank ℝ α
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
   intro d
-  obtain h1 | h1 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
-  · apply radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe h1)
+  obtain hX2 | hX2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
+  · apply radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe hX2)
     apply ENat.coe_le_coe.mp
-    convert h1 using 1
-    simp [Set.ncard, Set.finite_of_encard_le_coe h1]
-  · exact radius_le_sqrt_of_encard_gt_finrank hX h1
+    convert hX2 using 1
+    simp [Set.ncard, Set.finite_of_encard_le_coe hX2]
+  · let F (x : X) := closedBall x.val (√(d / (2 * d + 2) : ℝ) * diam X)
+    suffices (⋂ i, F i).Nonempty by
+      refine radius_le hX1 ?_ this.choose _ ?_
+      · apply Set.encard_ne_zero.mp; by_contra! h1; simp [h1] at hX2
+      · simpa [F, mem_closedBall, dist_comm] using this.choose_spec
+    apply Convex.helly_theorem_compact (𝕜 := ℝ)
+    · simpa using hX2
+    · intro ⟨i, hi⟩
+      apply convex_closedBall
+    · intro ⟨i, hi⟩
+      apply isCompact_closedBall
+    · intro I hI
+      let I' := SetLike.coe I
+      replace hI : #I = d + 1 := by simpa using hI
+      simp only [Set.iInter_coe_set, Set.nonempty_iInter, Set.mem_iInter]
+      set c := center (Subtype.val '' I')
+      have hI' := calc
+        (Subtype.val '' I').ncard = I'.ncard := Set.ncard_image_of_injOn Set.injOn_subtype_val
+        _ = d + 1 := by simpa [I'] using hI
+      have hc : radius (Subtype.val '' I') ≤ _ := radius_le_sqrt_of_finite (Set.toFinite _) hI'.le
+      have hc' := subset (IsBounded.subset hX1 (Subtype.coe_image_subset X I))
+      rw [Set.image_subset_iff] at hc'
+      use c
+      intro i hi hi2
+      specialize hc' hi2
+      suffices dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (X) by simpa [F] using this
+      replace hc : dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (Subtype.val '' I') := by
+        simpa [dist_comm] using hc'.trans hc
+      apply le_trans hc
+      gcongr 1
+      exact diam_mono (Subtype.coe_image_subset X I) hX1
 
 /-- Jung's theorem. A bounded set `X` is contained in a closed ball of radius
 at most `√(d / (2 * d + 2)) * diam X`, where `d` is the dimension of the ambient space. -/
