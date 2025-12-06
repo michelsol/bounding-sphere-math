@@ -722,7 +722,6 @@ theorem center_mem_convexHull_sphere_of_finite
   have h5 := calc
     r0 = √(r0 ^ 2) := by
       rw [Real.sqrt_sq]
-      unfold r0
       rw [Finset.le_sup'_iff]
       use hX2.choose, by simpa using hX2.choose_spec
       apply norm_nonneg
@@ -742,240 +741,193 @@ theorem center_mem_convexHull_sphere_of_finite
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
 theorem encard_sphere_ge_two_of_finite
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    [Inhabited α] [ProperSpace α]
-    (h : X.encard ≥ 2) (h' : X.Finite) :
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α]
+    (hX1 : X.encard ≥ 2) (hX2 : X.Finite) :
     (X ∩ sphere (center X) (radius X)).encard ≥ 2 := by
-  have hX : IsBounded X := h'.isBounded
-  have hX2 : X.Nonempty := by
+  have hX3 := hX2.isBounded
+  have hX4 : X.Nonempty := by
     apply Set.encard_ne_zero.mp
     by_contra! h0
-    simp [h0] at h
-  have hr := radius_le hX hX2
-  have hc := subset hX
+    simp [h0] at hX1
   set c := center X
   set r := radius X
-  let hit := X ∩ sphere (center X) (radius X)
-  change hit.encard ≥ 2
-  obtain h0 | h0 : ¬hit.Finite ∨ hit.Finite := by tauto
+  set Y := X ∩ sphere c r
+  obtain hY1 | hY1 : ¬Y.Finite ∨ Y.Finite := by tauto
   · rw [Set.encard_eq_top]
     · simp
-    · simpa using h0
-  obtain h1 | h1 | h1 : hit.encard = 0 ∨ hit.encard = 1 ∨ hit.encard ≥ 2 := by
-    have := h0.fintype
+    · simpa using hY1
+  obtain hY2 | hY2 | hY2 : Y.encard = 0 ∨ Y.encard = 1 ∨ Y.encard ≥ 2 := by
+    have := hY1.fintype
     unfold Set.encard
     rw [ENat.card_eq_coe_natCard]
     norm_cast
     omega
   · exfalso
-    rw [Set.encard_eq_zero] at h1
-    have h2 := nonempty_sphere_of_finite h' hX2
-    contrapose! h2
-    exact h1
+    rw [Set.encard_eq_zero] at hY2
+    have hY3 := nonempty_sphere_of_finite hX2 hX4
+    contrapose! hY3
+    exact hY2
   · exfalso
-    rw [Set.encard_eq_one] at h1
-    obtain ⟨x, hx⟩ := h1
-    have hx1 : x ∈ hit := by simp [hx]
+    rw [Set.encard_eq_one] at hY2
+    obtain ⟨x, hx⟩ := hY2
+    have hx1 : x ∈ Y := by simp [hx]
     have hx2 : x ∈ X := hx1.left
     have hx3 := hx1.right
-    have h1 : c ∈ convexHull ℝ hit := center_mem_convexHull_sphere_of_finite h' hX2
+    have h1 : c ∈ convexHull ℝ Y := center_mem_convexHull_sphere_of_finite hX2 hX4
     replace h1 : c = x := by simpa [hx] using h1
     have h2 : r = 0 := by simpa [sphere, c, h1] using hx3.symm
-    have h3 : r > 0 := radius_pos hX h
+    have h3 : r > 0 := radius_pos hX3 hX1
     linarith only [h2, h3]
-  · exact h1
-
+  · exact hY2
 
 open Finset in
-/-- An upper bound on the radius of the minimal bounding sphere of a finite set `X` -/
+/-- An upper bound on the radius of the minimal bounding sphere of a finite set. -/
 theorem radius_le_sqrt_of_finite
     [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α] [DecidableEq α]
-    (hX2 : X.Finite) :
-    let d := X.ncard - 1
+    {d : ℕ} (hX1 : X.Finite) (hXd : X.ncard ≤ d + 1) :
     radius X ≤ √(d / (2 * d + 2) : ℝ) * diam X := by
-
-  intro d
-  obtain hX3 | hX3 | hX3 : X.ncard = 0 ∨ X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
-  · rw [Set.ncard_eq_zero hX2] at hX3
-    simp [hX3]
-  · have ⟨a, ha⟩ := Set.ncard_eq_one.mp hX3
+  -- Handle cases where `X` has 0 or 1 point first to avoid later divisions by a diameter of zero.
+  obtain hX2 | hX2 | hX2 : X.ncard = 0 ∨ X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
+  · rw [Set.ncard_eq_zero hX1] at hX2
+    simp [hX2]
+  · have ⟨a, ha⟩ := Set.ncard_eq_one.mp hX2
     simp [ha, radius_singleton]
-
-  have hX4 : X.Nonempty := by
-    by_contra! h
-    rw [←Set.ncard_eq_zero (Set.finite_of_ncard_ne_zero (by linarith only [hX3]))] at h
-    omega
-
+  have hX3 : X.Nonempty := by by_contra! h; simp [h] at hX2
+  -- Without loss of generality, translate `X` so that its center is at the origin.
   wlog hc : center X = 0
   · let T := (· - center X) '' X
     have hT : T.ncard = X.ncard := Set.ncard_image_of_injective _ sub_left_injective
-    specialize this (X := T)
-    specialize this (Set.Finite.image (· - center X) hX2)
-    specialize this (by simpa [hT] using hX3)
-    specialize this (by simpa [T] using hX4)
-    specialize this (by simp [T, center_image_sub_right hX2.isBounded hX4])
+    specialize this (X := T) (d := d)
+    specialize this (Set.Finite.image (· - center X) hX1)
+    specialize this (by simpa [hT] using hXd)
+    specialize this (by simpa [hT] using hX2)
+    specialize this (by simpa [T] using hX3)
+    specialize this (by simp [T, center_image_sub_right hX1.isBounded hX3])
     convert this using 1
     · simp [T, radius_image_sub_right]
     · congr 1
-      · rw [hT]
       · unfold diam
         congr 1
         iterate 2 rw [EMetric.diam_eq_sSup]
         congr 1
         ext x
         simp [T]
-
-  have hX : IsBounded X := hX2.isBounded
+  have hX0 := hX1.fintype
+  have hX4 : diam X > 0 := by
+    let a : Fin (Fintype.card X) ↪ X := hX0.equivFin.symm.toEmbedding
+    let b : Fin 2 ↪ Fin (Fintype.card X) := Fin.castLEEmb (by
+      simpa [←Set.toFinset_card, X.ncard_eq_toFinset_card'.symm] using hX2)
+    let x0 := a (b ⟨0, by simp⟩)
+    let x1 := a (b ⟨1, by simp⟩)
+    calc
+      0 < dist x0 x1 := dist_pos.mpr ((a.injective.comp b.injective).ne (by simp))
+      _ ≤ diam X := dist_le_diam_of_mem hX1.isBounded x0.2 x1.2
+  -- Denote `Y` the points of `X` that lie on the sphere, and let `n` be their number.
   set r := radius X
-  let h3 := subset hX
-
-  have h1' := hX2.fintype
-  have h1 : X.toFinset.card ≥ 2 := by
-    convert hX3 using 1
-    exact Eq.symm (Set.ncard_eq_toFinset_card' X)
-
-  have := Fintype.ofFinite (X ∩ sphere 0 r : Set α)
-  let X' : Finset α := (X ∩ sphere 0 r : Set α).toFinset
-  have hX'1 : X'.Nonempty := by simpa [X', hc] using nonempty_sphere_of_finite h1'.finite hX4
-  have hS' : X' ⊆ X.toFinset := by simp [X']
-
-  let n := #X'
+  have hY0 := Fintype.ofFinite (X ∩ sphere 0 r : Set α)
+  let Y := (X ∩ sphere 0 r).toFinset
+  have hY1 : Y.Nonempty := by simpa [Y, hc] using nonempty_sphere_of_finite hX1 hX3
+  have hY2 : Y ⊆ X.toFinset := by simp [Y]
+  let n := #Y
   have hn : n ≠ 0 := by
     by_contra! hn
     rw [card_eq_zero] at hn
-    simp [hn] at hX'1
-
-  have h5 : center X ∈ convexHull ℝ X' := by
-    simpa [X', hc] using center_mem_convexHull_sphere_of_finite hX2 hX4
-
-  obtain ⟨l, h6, h7, h8⟩ : ∃ (l : α → ℝ),
-      (∀ k ∈ X', l k ≥ 0) ∧ ∑ x ∈ X', l x = 1 ∧ center X = ∑ x ∈ X', l x • x := by
-    rw [mem_convexHull'] at h5
-    obtain ⟨w, g1, g2, g3⟩ := h5
-    use w
-    exact ⟨fun k hk => g1 k (by simpa using hk), g2, g3.symm⟩
-
-  have h8' : diam X > 0 := by
-    let a : Fin (Fintype.card X) ↪ X := h1'.equivFin.symm.toEmbedding
-    let b : Fin 2 ↪ Fin (Fintype.card X) := Fin.castLEEmb (by simpa [←Set.toFinset_card] using h1)
-    let x0 := a (b ⟨0, by simp⟩)
-    let x1 := a (b ⟨1, by simp⟩)
-    have x : x0 ≠ x1 := (a.injective.comp b.injective).ne (by simp)
-    calc
-      0 < dist x0 x1 := by apply dist_pos.mpr; exact x
-      _ ≤ diam X := dist_le_diam_of_mem hX x0.2 x1.2
-
-  have h9 (i : α) (hi : i ∈ X') := calc
-    1 - l i = ∑ k ∈ X', l k - l i := by rw [h7]
-    _ = ∑ k ∈ X' \ {i}, l k + l i - l i := by
-      have h : {i} ⊆ X' := by simpa using hi
-      simp [←sum_sdiff h]
-    _ = ∑ k ∈ X' \ {i}, l k * 1 := by ring_nf
-    _ ≥ ∑ k ∈ X' \ {i}, l k * (‖k - i‖ ^ 2 / diam X ^ 2) := by
-      gcongr 2 with k hk
+    simp [hn] at hY1
+  -- As the center is in the convex hull of `Y`, rewrite it as a convex combination.
+  -- `c = ∑ xi ∈ Y, l xi • xi` with `∑ x i ∈ Y, l xi = 1` and `l xi ≥ 0`
+  have hcY : center X ∈ convexHull ℝ Y := by
+    simpa [Y, hc] using center_mem_convexHull_sphere_of_finite hX1 hX3
+  obtain ⟨l, hl1, hl2, hl3⟩ := mem_convexHull'.mp hcY
+  -- First, derive a lower bound on `1 - l xi` for `xi ∈ Y`.
+  have ineq (xi : α) (hi : xi ∈ Y) := calc
+    1 - l xi = ∑ xk ∈ Y, l xk - l xi := by rw [hl2]
+    _ = ∑ xk ∈ Y \ {xi}, l xk + l xi - l xi := by simp [←sum_sdiff (singleton_subset_iff.mpr hi)]
+    _ = ∑ xk ∈ Y \ {xi}, l xk * 1 := by ring_nf
+    _ ≥ ∑ xk ∈ Y \ {xi}, l xk * (‖xk - xi‖ ^ 2 / diam X ^ 2) := by
+      gcongr 2 with xk hk
       · simp at hk
-        exact h6 k (by simp [hk])
+        exact hl1 xk hk.left
       · simp at hk
-        suffices dist k i ^ 2 ≤ diam X ^ 2 by
+        suffices dist xk xi ^ 2 ≤ diam X ^ 2 by
           field_simp
           simpa [dist_eq_norm] using this
         gcongr 1
-        apply dist_le_diam_of_mem hX
-        · exact Set.mem_toFinset.mp (hS' hk.left)
-        · exact Set.mem_toFinset.mp (hS' hi)
-    _ = (1 / diam X ^ 2) * ∑ k ∈ X' \ {i}, l k * ‖k - i‖ ^ 2 := by
-      rw [mul_sum]
-      congr! 1 with k hk
-      field_simp
-    _ = (1 / diam X ^ 2) * ∑ k ∈ X', l k * ‖k - i‖ ^ 2 := by
-      congr 1
-      have h : {i} ⊆ X' := by simpa using hi
-      simp [←sum_sdiff h]
-    _ = (1 / diam X ^ 2) * ∑ k ∈ X',
-          (l k * ‖k‖ ^ 2 + l k * ‖i‖ ^ 2 - 2 * (l k * ⟪k, i⟫_ℝ)) := by
-      congr! 2 with k hk
+        apply dist_le_diam_of_mem hX1.isBounded
+        · exact Set.mem_toFinset.mp (hY2 hk.left)
+        · exact Set.mem_toFinset.mp (hY2 hi)
+    _ = (1 / diam X ^ 2) * ∑ xk ∈ Y \ {xi}, l xk * ‖xk - xi‖ ^ 2 := by rw [mul_sum]; field_simp
+    _ = (1 / diam X ^ 2) * ∑ xk ∈ Y, l xk * ‖xk - xi‖ ^ 2 := by
+      simp [←sum_sdiff (singleton_subset_iff.mpr hi)]
+    _ = (1 / diam X ^ 2) * ∑ xk ∈ Y,
+          (l xk * ‖xk‖ ^ 2 + l xk * ‖xi‖ ^ 2 - 2 * (l xk * ⟪xk, xi⟫_ℝ)) := by
+      congr! 2 with xk hk
       rw [norm_sub_sq_real]
       ring
     _ = (1 / diam X ^ 2) * (
-          ∑ k ∈ X', l k * ‖k‖ ^ 2 + ∑ k ∈ X', l k * ‖i‖ ^ 2 -
-          2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
+          ∑ xk ∈ Y, l xk * ‖xk‖ ^ 2 + ∑ xk ∈ Y, l xk * ‖xi‖ ^ 2 -
+          2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
       congr 1
       conv_lhs => rw [sum_sub_distrib, sum_add_distrib]
       congr 2
       rw [mul_sum]
     _ = (1 / diam X ^ 2) * (
-          ∑ k ∈ X', l k * r ^ 2 + ∑ k ∈ X', l k * r ^ 2 -
-          2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
-      congr! 6 with k hk
-      · simp [X'] at hk
+          ∑ xk ∈ Y, l xk * r ^ 2 + ∑ xk ∈ Y, l xk * r ^ 2 - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
+      congr! 6 with xk hk
+      · simp [Y] at hk
         simp [hk]
-      · simp [X'] at hi
+      · simp [Y] at hi
         simp [hi]
     _ = (1 / diam X ^ 2) * (
-          r ^ 2 * ∑ k ∈ X', l k + r ^ 2 * ∑ k ∈ X', l k -
-          2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
+          r ^ 2 * ∑ xk ∈ Y, l xk + r ^ 2 * ∑ xk ∈ Y, l xk - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
       congr 3
       all_goals
       · rw [mul_sum]
-        congr! 1 with k hk
+        congr! 1 with xk hk
         ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * ∑ k ∈ X', l k * ⟪k, i⟫_ℝ) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
       congr 2
-      rw [h7]
+      rw [hl2]
       ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ k ∈ X', l k * ⟪k, i⟫_ℝ)) := by
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ)) := by
       ring
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ k ∈ X', ⟪l k • k, i⟫_ℝ)) := by
-      congr! 4 with k hk
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (∑ xk ∈ Y, ⟪l xk • xk, xi⟫_ℝ)) := by
+      congr! 4 with xk hk
       rw [real_inner_smul_left]
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (⟪∑ k ∈ X', l k • k, i⟫_ℝ)) := by
-      congr! 4 with k hk
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2 - 2 * (⟪∑ xk ∈ Y, l xk • xk, xi⟫_ℝ)) := by
+      congr! 4 with xk hk
       rw [sum_inner]
-    _ = (1 / diam X ^ 2) * (2 * r ^ 2) := by simp [←h8, hc]
+    _ = (1 / diam X ^ 2) * (2 * r ^ 2) := by simp [hl3, hc]
     _ = 2 * r ^ 2 / diam X ^ 2 := by field_simp
-
-  have h10 := calc
-    n - 1 = ∑ i ∈ X', 1 - ∑ i ∈ X', l i := by simp [h7, n]
-    _ = ∑ i ∈ X', (1 - l i) := by rw [sum_sub_distrib]
-    _ ≥ ∑ i ∈ X', (2 * r ^ 2 / diam X ^ 2) := by
-      gcongr 2 with i hi
-      exact h9 i hi
+  -- Now, sum this inequality over all `xi ∈ Y` to get an inequality involving `n` and `r`.
+  replace ineq := calc
+    n - 1 = ∑ xi ∈ Y, 1 - ∑ i ∈ Y, l i := by simp [hl2, n]
+    _ = ∑ xi ∈ Y, (1 - l xi) := by rw [sum_sub_distrib]
+    _ ≥ ∑ xi ∈ Y, (2 * r ^ 2 / diam X ^ 2) := by gcongr 2 with xi hi; exact ineq xi hi
     _ = n * (2 * r ^ 2 / diam X ^ 2) := by simp [sum_const, n]
     _ = 2 * n * r ^ 2 / diam X ^ 2 := by ring
-
+  -- Rearranging this inequality yields the desired result.
   exact calc
     r = √(r ^ 2) := by
-      symm
-      apply Real.sqrt_sq
+      rw [Real.sqrt_sq]
       calc
         0 ≤ _ := by apply dist_nonneg
-        _ ≤ r := h3 hX4.choose_spec
-    _ ≤ √(((n - 1) / (2 * n)) * diam X ^ 2) := by
-      apply Real.sqrt_le_sqrt
-      field_simp at h10 ⊢
-      simpa using h10
-    _ = √((n - 1) / (2 * n)) * √(diam X ^ 2) := by
-      rw [Real.sqrt_mul]
-      field_simp
-      simp
-      omega
-    _ = √((n - 1) / (2 * n)) * diam X := by
-      congr 1
-      apply Real.sqrt_sq
-      apply diam_nonneg
+        _ ≤ r := subset hX1.isBounded hX3.choose_spec
+    _ ≤ √(((n - 1) / (2 * n)) * diam X ^ 2) := by gcongr 1; field_simp at ineq ⊢; simpa using ineq
+    _ = √((n - 1) / (2 * n)) * √(diam X ^ 2) := by rw [Real.sqrt_mul]; field_simp; simp; omega
+    _ = √((n - 1) / (2 * n)) * diam X := by congr 1; apply Real.sqrt_sq; apply diam_nonneg
     _ ≤ √(d / (2 * d + 2)) * diam X := by
       gcongr 2
+      have := calc
+        n ≤ #X.toFinset := Finset.card_le_card hY2
+        _ = X.ncard := X.ncard_eq_toFinset_card'.symm
+        _ ≤ d + 1 := hXd
       field_simp
-      have : n ≤ d + 1 := calc
-        #X' ≤ #X.toFinset := Finset.card_le_card hS'
-        _ = X.ncard := Eq.symm (Set.ncard_eq_toFinset_card' X)
-        _ = d + 1 := by omega
       rify at this
       nlinarith only [this]
 
 open Finset in
-/-- An upper bound on the radius of the minimal bounding sphere of a bounded set `X`
-with cardinality greater than the dimension of the ambient space -/
+/-- An upper bound on the radius of the minimal bounding sphere of a bounded set
+with cardinality greater than the dimension of the ambient space. -/
 theorem radius_le_sqrt_of_encard_gt_finrank
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
@@ -985,23 +937,11 @@ theorem radius_le_sqrt_of_encard_gt_finrank
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
   intro d
 
-  have hX3 : X.Nonempty := by
-    apply Set.encard_ne_zero.mp
-    by_contra! h1
-    simp [h1] at hX2
-
-  suffices ∃ c, X ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam X) by
-    obtain ⟨c, hc⟩ := this
-    apply radius_le hX hX3 c _ hc
-
   let F (x : X) := closedBall x.val (√(d / (2 * d + 2) : ℝ) * diam X)
-
   suffices (⋂ i, F i).Nonempty by
-    let c := this.choose
-    have hc : c ∈ (⋂ y : X, F y) := this.choose_spec
-    simp [F] at hc
-    use c
-    simpa [mem_closedBall, dist_comm] using hc
+    refine radius_le hX ?_ this.choose _ ?_
+    · apply Set.encard_ne_zero.mp; by_contra! h1; simp [h1] at hX2
+    · simpa [F, mem_closedBall, dist_comm] using this.choose_spec
 
   apply Convex.helly_theorem_compact (𝕜 := ℝ)
   · simpa using hX2
@@ -1017,8 +957,7 @@ theorem radius_le_sqrt_of_encard_gt_finrank
     have hI' := calc
       (Subtype.val '' I').ncard = I'.ncard := Set.ncard_image_of_injOn Set.injOn_subtype_val
       _ = d + 1 := by simpa [I'] using hI
-    have hc : radius (Subtype.val '' I') ≤ _ := radius_le_sqrt_of_finite (Set.toFinite _)
-    rw [hI'] at hc
+    have hc : radius (Subtype.val '' I') ≤ _ := radius_le_sqrt_of_finite (Set.toFinite _) hI'.le
     have hc' := subset (IsBounded.subset hX (Subtype.coe_image_subset X I))
     rw [Set.image_subset_iff] at hc'
     use c
@@ -1040,18 +979,12 @@ theorem radius_le_sqrt_of_isBounded
     let d := Module.finrank ℝ α
     radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
   intro d
-  obtain h2 | h2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
-  · apply le_trans (radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe h2))
-    gcongr 2
-    replace h2 : X.ncard ≤ d + 1 := by
-      apply ENat.coe_le_coe.mp
-      convert h2 using 1
-      simp [Set.ncard, Set.finite_of_encard_le_coe h2]
-    replace h2 : X.ncard - 1 ≤ d := by omega
-    rify at h2
-    field_simp
-    nlinarith only [h2]
-  · exact radius_le_sqrt_of_encard_gt_finrank hX h2
+  obtain h1 | h1 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
+  · apply radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe h1)
+    apply ENat.coe_le_coe.mp
+    convert h1 using 1
+    simp [Set.ncard, Set.finite_of_encard_le_coe h1]
+  · exact radius_le_sqrt_of_encard_gt_finrank hX h1
 
 /-- Jung's theorem. A bounded set `X` is contained in a closed ball of radius
 at most `√(d / (2 * d + 2)) * diam X`, where `d` is the dimension of the ambient space. -/
