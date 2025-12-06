@@ -938,11 +938,12 @@ theorem radius_le_sqrt_of_isBounded
     apply ENat.coe_le_coe.mp
     convert hX2 using 1
     simp [Set.ncard, Set.finite_of_encard_le_coe hX2]
-  · let F (x : X) := closedBall x.val (√(d / (2 * d + 2) : ℝ) * diam X)
+  · let f (x : α) := closedBall x (√(d / (2 * d + 2) : ℝ) * diam X)
+    let F (x : X) := f x.val
     suffices (⋂ i, F i).Nonempty by
       refine radius_le hX1 ?_ this.choose _ ?_
       · apply Set.encard_ne_zero.mp; by_contra! h1; simp [h1] at hX2
-      · simpa [F, mem_closedBall, dist_comm] using this.choose_spec
+      · simpa [F, f, mem_closedBall, dist_comm] using this.choose_spec
     apply Convex.helly_theorem_compact (𝕜 := ℝ)
     · simpa using hX2
     · intro ⟨i, hi⟩
@@ -950,39 +951,37 @@ theorem radius_le_sqrt_of_isBounded
     · intro ⟨i, hi⟩
       apply isCompact_closedBall
     · intro I hI
-      let I' := SetLike.coe I
-      replace hI : #I = d + 1 := by simpa using hI
-      simp only [Set.iInter_coe_set, Set.nonempty_iInter, Set.mem_iInter]
-      set c := center (Subtype.val '' I')
-      have hI' := calc
-        (Subtype.val '' I').ncard = I'.ncard := Set.ncard_image_of_injOn Set.injOn_subtype_val
-        _ = d + 1 := by simpa [I'] using hI
-      have hc : radius (Subtype.val '' I') ≤ _ := radius_le_sqrt_of_finite (Set.toFinite _) hI'.le
-      have hc' := subset (IsBounded.subset hX1 (Subtype.coe_image_subset X I))
-      rw [Set.image_subset_iff] at hc'
-      use c
-      intro i hi hi2
-      specialize hc' hi2
-      suffices dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (X) by simpa [F] using this
-      replace hc : dist c i ≤ √(d / (2 * d + 2) : ℝ) * diam (Subtype.val '' I') := by
-        simpa [dist_comm] using hc'.trans hc
+      let K := Subtype.val '' SetLike.coe I
+      have hK : K.ncard = d + 1 := by
+        simpa [K, Set.ncard_image_of_injOn Set.injOn_subtype_val] using hI
+      suffices (⋂ k ∈ K, f k).Nonempty by
+        obtain ⟨c, hc⟩ := this
+        use c
+        simp only [Set.mem_iInter] at hc
+        simp only [Set.iInter_coe_set, Set.mem_iInter]
+        intro i hi hj
+        simpa using hc i ⟨⟨i, hi⟩, hj, rfl⟩
+      have hK2 : K.Finite := Set.finite_of_ncard_ne_zero (by omega)
+      have hK3 : K ⊆ X := by simp [K]
+      use center K
+      simp only [Set.mem_iInter]
+      intro i hi
+      have hc := (subset (hX1.subset hK3) hi).trans (radius_le_sqrt_of_finite hK2 hK.le)
+      rw [dist_comm] at hc
       apply le_trans hc
       gcongr 1
-      exact diam_mono (Subtype.coe_image_subset X I) hX1
+      exact diam_mono hK3 hX1
 
 /-- Jung's theorem. A bounded set `X` is contained in a closed ball of radius
 at most `√(d / (2 * d + 2)) * diam X`, where `d` is the dimension of the ambient space. -/
 theorem jung_theorem
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    [Inhabited α] [ProperSpace α] [DecidableEq α]
+    [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α] [DecidableEq α]
     [FiniteDimensional ℝ α]
     (hX : IsBounded X) :
     let d := Module.finrank ℝ α
     ∃ c, X ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam X) := by
   use center X
-  apply (subset hX).trans
-  apply closedBall_subset_closedBall
-  exact radius_le_sqrt_of_isBounded hX
+  exact (subset hX).trans (closedBall_subset_closedBall (radius_le_sqrt_of_isBounded hX))
 
 end
 
