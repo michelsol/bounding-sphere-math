@@ -423,26 +423,22 @@ theorem center_eq_center_of_IsMinimal
   let c := (1 / 2 : ℝ) • (x + y)
   set B1 := closedBall x r1
   set B2 := closedBall y r1
-  have h5 z (hz1 : z ∈ B1) (hz2 : z ∈ B2) : dist z c ^ 2 ≤ r1 ^ 2 - r0 ^ 2 := calc
+  have h3 z (hz1 : z ∈ B1) (hz2 : z ∈ B2) : dist z c ^ 2 ≤ r1 ^ 2 - r0 ^ 2 :=
+    let a := z - x
+    let b := z - y
+    calc
     dist z c ^ 2 = _ := by rw [dist_eq_norm]
-    ‖z - c‖ ^ 2 = ‖(1 / 2 : ℝ) • (z - x + (z - y))‖ ^ 2 := by
-      congr 2
-      module
-    _ = ‖(1 / 2 : ℝ)‖ ^ 2 * ‖(z - x + (z - y))‖ ^ 2 := by
-      rw [norm_smul]
+    ‖z - c‖ ^ 2 = ‖(1 / 2 : ℝ) • (z - x + (z - y))‖ ^ 2 := by congr 2; module
+    _ = ‖(1 / 2 : ℝ)‖ ^ 2 * ‖(z - x + (z - y))‖ ^ 2 := by rw [norm_smul]; ring
+    _ = (1 / 4 : ℝ) * ‖a + b‖ ^ 2 := by congr 1; norm_num
+    _ = (1 / 4 : ℝ) * (2 * ‖a‖ ^ 2 + 2 * ‖b‖ ^ 2 - ‖a - b‖ ^ 2) := by
+      rw [norm_add_sq_real a b, norm_sub_sq_real a b]
       ring
-    _ = (1 / 4 : ℝ) * ‖(z - x + (z - y))‖ ^ 2 := by congr 1; norm_num
     _ = (1 / 4 : ℝ) * (2 * ‖z - x‖ ^ 2 + 2 * ‖z - y‖ ^ 2 - ‖x - y‖ ^ 2) := by
+      congr 3
+      rw [norm_sub_rev]
       congr 1
-      set a := z - x
-      set b := z - y
-      convert_to ‖a + b‖ ^ 2 = 2 * ‖a‖ ^ 2 + 2 * ‖b‖ ^ 2 - ‖a - b‖ ^ 2 using 3
-      · rw [norm_sub_rev]
-        congr 1
-        module
-      generalize a = a, b = b
-      rw [norm_add_sq_real, norm_sub_sq_real]
-      ring
+      module
     _ = (1 / 2 : ℝ) * ‖z - x‖ ^ 2 + (1 / 2 : ℝ) * ‖z - y‖ ^ 2 - (1 / 4 : ℝ) * ‖x - y‖ ^ 2 := by ring
     _ ≤ (1 / 2 : ℝ) * r1 ^ 2 + (1 / 2 : ℝ) * r1 ^ 2 - (1 / 4 : ℝ) * (2 * r0) ^ 2 := by
       gcongr 4
@@ -453,7 +449,7 @@ theorem center_eq_center_of_IsMinimal
           _ = dist x y := by ring
           _ = ‖x - y‖ := by rw [dist_eq_norm]
     _ = r1 ^ 2 - r0 ^ 2 := by ring
-  have h6 : X ⊆ closedBall c √(r1 ^ 2 - r0 ^ 2) := by
+  have h4 : X ⊆ closedBall c √(r1 ^ 2 - r0 ^ 2) := by
     intro s hs
     rw [mem_closedBall]
     calc
@@ -461,19 +457,19 @@ theorem center_eq_center_of_IsMinimal
         symm
         apply Real.sqrt_sq
         apply dist_nonneg
-      _ ≤ √(r1 ^ 2 - r0 ^ 2) := Real.sqrt_le_sqrt (h5 s (h1.left hs) (h2.left hs))
-  have h3 := h1.right c (√(r1 ^ 2 - r0 ^ 2)) h6
-  replace h3 := calc
+      _ ≤ √(r1 ^ 2 - r0 ^ 2) := Real.sqrt_le_sqrt (h3 s (h1.left hs) (h2.left hs))
+  have := h1.right c (√(r1 ^ 2 - r0 ^ 2)) h4
+  replace := calc
     r1 ^ 2 ≤ √(r1 ^ 2 - r0 ^ 2) ^ 2 := by gcongr 1
     _ = r1 ^ 2 - r0 ^ 2 := by
       apply Real.sq_sqrt
       calc
         0 ≤ dist s0 c ^ 2 := by apply sq_nonneg
-        _ ≤ _ := h5 s0 (h1.left hs0) (h2.left hs0)
-  replace h3 : r0 = 0 := by nlinarith only [h3]
-  unfold r0 at h3
-  replace h3 : dist x y = 0 := by linarith only [h3]
-  simpa [dist_eq_zero] using h3
+        _ ≤ _ := h3 s0 (h1.left hs0) (h2.left hs0)
+  replace : r0 = 0 := by nlinarith only [this]
+  unfold r0 at this
+  replace : dist x y = 0 := by linarith only [this]
+  simpa [dist_eq_zero] using this
 
 end
 
@@ -924,15 +920,14 @@ theorem radius_le_sqrt_of_finite
       nlinarith only [this]
 
 open Finset in
-/-- An upper bound on the radius of the minimal bounding sphere of a bounded set `X` -/
+/-- Jung's theorem. An upper bound on the radius of the minimal bounding sphere of a bounded set. -/
 theorem radius_le_sqrt_of_isBounded
     [NormedAddCommGroup α] [InnerProductSpace ℝ α]
     [Inhabited α] [ProperSpace α] [DecidableEq α]
     [FiniteDimensional ℝ α]
     (hX1 : IsBounded X) :
-    let d := Module.finrank ℝ α
-    radius X ≤ (√(d / (2 * d + 2) : ℝ) * diam X) := by
-  intro d
+    radius X ≤ (√(Module.finrank ℝ α / (2 * Module.finrank ℝ α + 2) : ℝ) * diam X) := by
+  set d := Module.finrank ℝ α
   obtain hX2 | hX2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
   · apply radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe hX2)
     apply ENat.coe_le_coe.mp
@@ -972,17 +967,5 @@ theorem radius_le_sqrt_of_isBounded
       gcongr 1
       exact diam_mono hK3 hX1
 
-/-- Jung's theorem. A bounded set `X` is contained in a closed ball of radius
-at most `√(d / (2 * d + 2)) * diam X`, where `d` is the dimension of the ambient space. -/
-theorem jung_theorem
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α] [DecidableEq α]
-    [FiniteDimensional ℝ α]
-    (hX : IsBounded X) :
-    let d := Module.finrank ℝ α
-    ∃ c, X ⊆ closedBall c (√(d / (2 * d + 2) : ℝ) * diam X) := by
-  use center X
-  exact (subset hX).trans (closedBall_subset_closedBall (radius_le_sqrt_of_isBounded hX))
-
 end
-
 end BoundingSphere
