@@ -13,8 +13,8 @@ the supremal distance from a point to a set, in `ℝ≥0∞` and `ℝ` respectiv
 
 ## Main results
 
-- `supEDist_mem_of_isFinite`: the supremal distance from a point to a finite set is attained.
 - `supEDist_mem_of_isCompact`: the supremal distance from a point to a compact set is attained.
+- `supEDist_mem_of_isFinite`: the supremal distance from a point to a finite set is attained.
 
 -/
 
@@ -60,26 +60,16 @@ theorem supEDist_eq_top_of_not_isBounded (h1 : ¬IsBounded X) c : supEDist X c =
   · simpa using hb2 x hx
   · simpa [edist_comm] using hb2 y hy
 
-/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
-theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
-    supEDist X c ∈ (edist · c) '' X := by
-  have h1' := h1.fintype
-  convert_to sSup ((edist · c) '' X.toFinset) ∈ (edist · c) '' X using 1
-  · rw [Set.coe_toFinset]
-    rfl
-  rw [←X.toFinset.sup'_eq_csSup_image (by simpa using h2)]
-  apply Finset.sup'_mem
-  · grind
-  · intro s hs
-    use s, by simpa using hs
-
 /-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
 theorem supEDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
     supEDist X c ∈ (edist · c) '' X := by
   apply IsCompact.sSup_mem
-  · apply h1.image
-    fun_prop
+  · exact h1.image (continuous_id'.edist continuous_const)
   · simp [h2]
+
+/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
+theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
+    supEDist X c ∈ (edist · c) '' X := supEDist_mem_of_isCompact h1.isCompact h2 _
 
 theorem edist_le_supEDist c {y} (hy : y ∈ X) : edist y c ≤ supEDist X c := by
   unfold supEDist
@@ -135,23 +125,17 @@ theorem supEDist_eq_supDist_of_isBounded (h1 : IsBounded X) c :
   rw [ofReal_toReal]
   exact supEDist_ne_top_of_isBounded h1 c
 
-/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
-theorem supDist_mem_of_isFinite c (h1 : X.Finite) (h2 : X.Nonempty) :
-    supDist X c ∈ (dist · c) '' X := by
-  unfold supDist
-  obtain ⟨x, hx1, hx2⟩ := supEDist_mem_of_isFinite h1 h2 c
-  rw [←hx2]
-  use x, hx1
-  simp [dist_edist]
-
 /-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
 theorem supDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
     supDist X c ∈ (dist · c) '' X := by
   rw [supDist_eq]
   apply IsCompact.sSup_mem
-  · apply h1.image
-    fun_prop
+  · exact h1.image (continuous_id'.dist continuous_const)
   · simp [h2]
+
+/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
+theorem supDist_mem_of_isFinite c (h1 : X.Finite) (h2 : X.Nonempty) :
+    supDist X c ∈ (dist · c) '' X := supDist_mem_of_isCompact h1.isCompact h2 _
 
 theorem dist_le_supDist (h1 : IsBounded X) c {y} (hy : y ∈ X) : dist y c ≤ supDist X c := by
   unfold supDist
