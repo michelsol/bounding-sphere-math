@@ -6,16 +6,16 @@ Authors: Julien Michel
 import Mathlib
 
 /-!
-# supEDist and supDist
+# Supremal extended distance to a set
 
-In this file we introduce `supEDist` and `supDist`, which represent
-the supremal distance from a point to a set, in `ℝ≥0∞` and `ℝ` respectively.
+In this file we introduce `supEDist` which represents
+the supremal distance from a point to a set, in `ℝ≥0∞`.
 
 ## Main results
 
 - `supEDist_mem_of_isCompact`: the supremal distance from a point to a compact set is attained.
-- `supEDist_mem_of_isFinite`: the supremal distance from a point to a finite set is attained.
-
+- `supEDist_eq_top_of_not_isBounded`: the supremal distance from a point to an unbounded set is `⊤`.
+- `supEDist_ne_top_of_isBounded`: the supremal distance from a point to a bounded set is not `⊤`.
 -/
 
 section
@@ -25,6 +25,26 @@ variable [PseudoMetricSpace α] {X : Set α}
 /-- The supremal distance from a point `c` to a set `X`,
 which is equal to `⊤` if `X` is unbounded. -/
 noncomputable def supEDist {α} [EDist α] (X : Set α) c := sSup {edist s c | s ∈ X}
+
+/-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
+theorem supEDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
+    supEDist X c ∈ (edist · c) '' X := by
+  apply IsCompact.sSup_mem
+  · exact h1.image (continuous_id'.edist continuous_const)
+  · simp [h2]
+
+/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
+theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
+    supEDist X c ∈ (edist · c) '' X := supEDist_mem_of_isCompact h1.isCompact h2 _
+
+/-- The supremal distance from `X` to `c` is greater than or equal to
+the distance from any point in `X` to `c`. -/
+theorem edist_le_supEDist c {y} (hy : y ∈ X) : edist y c ≤ supEDist X c := by
+  unfold supEDist
+  rw [le_sSup_iff]
+  intro b hb
+  simp [upperBounds] at hb
+  exact hb y hy
 
 /-- If `X` is bounded, then the supremal distance from `X` to `c` is not `⊤`. -/
 theorem supEDist_ne_top_of_isBounded (h1 : IsBounded X) c : supEDist X c ≠ ⊤ := by
@@ -60,24 +80,6 @@ theorem supEDist_eq_top_of_not_isBounded (h1 : ¬IsBounded X) c : supEDist X c =
   · simpa using hb2 x hx
   · simpa [edist_comm] using hb2 y hy
 
-/-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
-theorem supEDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
-    supEDist X c ∈ (edist · c) '' X := by
-  apply IsCompact.sSup_mem
-  · exact h1.image (continuous_id'.edist continuous_const)
-  · simp [h2]
-
-/-- If `X` is finite, then the supremal distance from `X` to `c` is attained. -/
-theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
-    supEDist X c ∈ (edist · c) '' X := supEDist_mem_of_isCompact h1.isCompact h2 _
-
-theorem edist_le_supEDist c {y} (hy : y ∈ X) : edist y c ≤ supEDist X c := by
-  unfold supEDist
-  rw [le_sSup_iff]
-  intro b hb
-  simp [upperBounds] at hb
-  exact hb y hy
-
 /-- The supremal distance from a point `c` to a set `X` translated by `a` is equal to
 the supremal distance from `c - a` to the original set `X`. -/
 theorem supEDist_image_add_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
@@ -101,6 +103,23 @@ theorem supEDist_image_sub_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] 
   · simp [sub_eq_add_neg]
   · simp
 
+
+/-
+Copyright (c) 2025 Julien Michel. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Julien Michel
+-/
+
+/-!
+# Supremal distance to a set
+
+In this file we introduce `supDist` which represents
+the supremal distance from a point to a set, as a real number.
+
+## Main results
+
+- `supDist_mem_of_isCompact`: the supremal distance from a point to a compact set is attained.
+-/
 
 /-- The supremal distance from a point `c` to a set `X`, as a real number,
 which is equal to `0` if `X` is unbounded. -/
@@ -168,6 +187,7 @@ Authors: Julien Michel
 
 /-!
 # Minimal bounding spheres in proper inner product spaces
+
 In this file we develop a basic theory of minimal bounding spheres in a
 real inner product space where closed balls are compact.
 In such a space, the minimal bounding sphere of a nonempty bounded set exists and is unique.
@@ -175,6 +195,7 @@ Most results are about the radius and center of the sphere, rather than the sphe
 TODO: Check if the setting can be generalized.
 
 ## Main definitions
+
 - `BoundingSphere.radius`: The radius of the minimal bounding sphere.
 - `BoundingSphere.center`: The center of the minimal bounding sphere.
 
@@ -186,7 +207,6 @@ TODO: Check if the setting can be generalized.
 - `BoundingSphere.subset`: The minimal bounding sphere contains the set.
 - `BoundingSphere.radius_eq_radius_of_IsMinimal` and
   `BoundingSphere.center_eq_center_of_IsMinimal`: Uniqueness of the minimal bounding sphere.
-
 -/
 
 namespace BoundingSphere
@@ -562,13 +582,13 @@ Authors: Julien Michel
 -/
 
 /-!
-
 # Upper bounds on the radius of the minimal bounding sphere
 
 In this file we prove some upper bounds on the radius of the minimal bounding sphere
 of a nonempty bounded set in a proper inner product space.
 
 ## Main results
+
 - `BoundingSphere.center_mem_convexHull_sphere_of_finite`:
   The center of the minimal bounding sphere of a non empty finite set `X`
   is contained in the convex hull of the points of `X` that lie on the sphere.
@@ -577,7 +597,6 @@ of a nonempty bounded set in a proper inner product space.
 - `BoundingSphere.radius_le_sqrt_of_isBounded`:
   An upper bound on the radius of the minimal bounding sphere of a bounded set.
   This result was originally proved by H. Jung in 1901.
-
 -/
 
 namespace BoundingSphere
