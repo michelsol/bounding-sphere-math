@@ -5,6 +5,19 @@ Authors: Julien Michel
 -/
 import Mathlib
 
+/-!
+# supEDist and supDist
+
+In this file we introduce `supEDist` and `supDist`, which represent
+the supremal distance from a point to a set, in `ℝ≥0∞` and `ℝ` respectively.
+
+## Main results
+
+- `supEDist_mem_of_isFinite`: the supremal distance from a point to a finite set is attained.
+- `supEDist_mem_of_isCompact`: the supremal distance from a point to a compact set is attained.
+
+-/
+
 section
 open Bornology ENNReal Metric
 variable [PseudoMetricSpace α] {X : Set α}
@@ -75,6 +88,8 @@ theorem edist_le_supEDist c {y} (hy : y ∈ X) : edist y c ≤ supEDist X c := b
   simp [upperBounds] at hb
   exact hb y hy
 
+/-- The supremal distance from a point `c` to a set `X` translated by `a` is equal to
+the supremal distance from `c - a` to the original set `X`. -/
 theorem supEDist_image_add_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
     supEDist ((· + a) '' X) c = supEDist X (c - a) := by
   apply csSup_eq_csSup_of_forall_exists_le
@@ -145,6 +160,8 @@ theorem dist_le_supDist (h1 : IsBounded X) c {y} (hy : y ∈ X) : dist y c ≤ s
   rw [←supEDist_eq_supDist_of_isBounded h1 c]
   apply edist_le_supEDist c hy
 
+/-- The supremal distance from a point `c` to a set `X` translated by `a` is equal to
+the supremal distance from `c - a` to the original set `X`. -/
 theorem supDist_image_add_right [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α] (X : Set α) c a :
     supDist ((· + a) '' X) c = supDist X (c - a) := by
   unfold supDist
@@ -159,24 +176,45 @@ end
 
 
 
+/-
+Copyright (c) 2025 Julien Michel. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Julien Michel
+-/
 
+/-!
+# Minimal bounding spheres in proper inner product spaces
+In this file we develop a basic theory of minimal bounding spheres in a
+real inner product space where closed balls are compact.
+In such a space, the minimal bounding sphere of a nonempty bounded set exists and is unique.
+Most results are about the radius and center of the sphere, rather than the sphere itself.
+TODO: Check if the setting can be generalized.
 
+## Main definitions
+- `BoundingSphere.radius`: The radius of the minimal bounding sphere.
+- `BoundingSphere.center`: The center of the minimal bounding sphere.
 
+## Main results
 
+- `BoundingSphere.radius_mem_of_isBounded`: Key lemma used to define the center.
+- `BoundingSphere.radius_le`: The radius of the minimal bounding sphere is less than or equal to
+  that of any other ball containing the set.
+- `BoundingSphere.subset`: The minimal bounding sphere contains the set.
+- `BoundingSphere.radius_eq_radius_of_IsMinimal` and
+  `BoundingSphere.center_eq_center_of_IsMinimal`: Uniqueness of the minimal bounding sphere.
 
-
-
-
+-/
 
 namespace BoundingSphere
 open Bornology ENNReal Metric InnerProductSpace
 
-section
-variable {α} {X : Set α} [PseudoMetricSpace α]
-
 /-- The radius of the minimal bounding sphere of a set `X`, defined as the infimum of the supremal
 distance from a point to the set. -/
-noncomputable def radius (X : Set α) := sInf (Set.range (supDist X))
+noncomputable def radius {E} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [ProperSpace E]
+    (X : Set E) :=
+  sInf (Set.range (supDist X))
+
+variable {E} {X : Set E} [NormedAddCommGroup E] [InnerProductSpace ℝ E] [ProperSpace E]
 
 /-- The radius of the minimal bounding sphere is non negative. -/
 theorem radius_nonneg : radius X ≥ 0 := by
@@ -187,11 +225,11 @@ theorem radius_nonneg : radius X ≥ 0 := by
 
 /-- The radius of the minimal bounding sphere of the empty set is `0`. -/
 @[simp]
-theorem radius_empty [Inhabited α] : radius (∅ : Set α) = 0 := by
+theorem radius_empty : radius (∅ : Set E) = 0 := by
   unfold radius supDist supEDist
   simp
 
-theorem ofReal_radius_eq_of_isBounded [Inhabited α] (h1 : IsBounded X) :
+theorem ofReal_radius_eq_of_isBounded (h1 : IsBounded X) :
     ENNReal.ofReal (radius X) = sInf (Set.range (supEDist X)) := by
   unfold radius
   obtain h0 | h0 := X.eq_empty_or_nonempty
@@ -215,7 +253,7 @@ theorem ofReal_radius_eq_of_isBounded [Inhabited α] (h1 : IsBounded X) :
 
 /-- The radius of the minimal bounding sphere of a bounded set `X` is less than or equal to
 that of any other ball containing `X`. -/
-theorem radius_le [Inhabited α] (h1 : IsBounded X) (h0 : X.Nonempty) :
+theorem radius_le (h1 : IsBounded X) (h0 : X.Nonempty) :
     ∀ c', ∀ r', X ⊆ closedBall c' r' → radius X ≤ r' := by
   intro c' r' h2
   have hr' := calc
@@ -234,20 +272,15 @@ theorem radius_le [Inhabited α] (h1 : IsBounded X) (h0 : X.Nonempty) :
 
 /-- The radius of the minimal bounding sphere of a singleton is `0`. -/
 @[simp]
-theorem radius_singleton [Inhabited α] (a : α) : radius {a} = 0 := by
+theorem radius_singleton (a : E) : radius {a} = 0 := by
   suffices radius {a} ≤ 0 by
     apply le_antisymm this
     apply radius_nonneg
   apply radius_le isBounded_singleton (Set.singleton_nonempty a) a 0
   simp
 
-end
-
-section
-variable {α} {X : Set α} [PseudoMetricSpace α] [AddGroup α] [IsIsometricVAdd αᵃᵒᵖ α]
-
 /-- Translating a set `X` does not change the radius of its minimal bounding sphere. -/
-theorem radius_image_add_right (X : Set α) a :
+theorem radius_image_add_right (X : Set E) a :
     radius ((· + a) '' X) = radius X := by
   unfold radius
   convert_to sInf (Set.range (supDist X ∘ (· - a))) = _ using 3
@@ -258,14 +291,9 @@ theorem radius_image_add_right (X : Set α) a :
   simpa [sub_eq_add_neg] using add_right_surjective (-a)
 
 /-- Translating a set `X` does not change the radius of its minimal bounding sphere. -/
-theorem radius_image_sub_right (X : Set α) a :
+theorem radius_image_sub_right (X : Set E) a :
     radius ((· - a) '' X) = radius X := by
   simpa [sub_eq_add_neg] using radius_image_add_right X (-a)
-
-end
-
-section
-variable {α} {X : Set α} [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
 
 /-- If `X` is bounded, then the radius is attained
 as the supremal distance from some point in `X`. -/
@@ -367,8 +395,8 @@ theorem radius_mem_of_isBounded (h1 : IsBounded X) : radius X ∈ Set.range (sup
 open Classical in
 /-- The center of the minimal bounding sphere of a bounded set `X`,
 defined as a point where the radius is attained. -/
-noncomputable def center (X : Set α) :=
-  if h1 : IsBounded X then (radius_mem_of_isBounded h1).choose else default
+noncomputable def center (X : Set E) :=
+  if h1 : IsBounded X then (radius_mem_of_isBounded h1).choose else 0
 
 theorem radius_eq_supDist_center_of_isBounded (h1 : IsBounded X) :
     radius X = supDist X (center X) := by
@@ -384,34 +412,25 @@ theorem subset (h1 : IsBounded X) : X ⊆ closedBall (center X) (radius X) := by
     exact dist_le_supDist h1 (center X) hs
   · simp [Set.not_nonempty_iff_eq_empty.mp h0]
 
-end
-
-
-section
-variable {α} {X : Set α}
-
 /-- A set `X` is minimally enclosed by a closed ball with center `c` and radius `r`
 if `X` is contained in the closed ball and any closed ball containing `X` has radius at least
 `r`. -/
 def IsMinimal [PseudoMetricSpace α] (X : Set α) c r :=
   X ⊆ closedBall c r ∧ ∀ c', ∀ r', X ⊆ closedBall c' r' → r ≤ r'
 
-theorem IsMinimal.of_isBounded [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
-    (h1 : IsBounded X) (h0 : X.Nonempty) :
+theorem IsMinimal.of_isBounded (h1 : IsBounded X) (h0 : X.Nonempty) :
     IsMinimal X (center X) (radius X) := ⟨subset h1, radius_le h1 h0⟩
 
-
 /-- The radius of a minimal bounding sphere is unique. -/
-theorem radius_eq_radius_of_IsMinimal [PseudoMetricSpace α]
-    {x r1 y r2} (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : r1 = r2 :=
+theorem radius_eq_radius_of_IsMinimal [PseudoMetricSpace α] {X : Set α} {x r1 y r2}
+    (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : r1 = r2 :=
   le_antisymm (h1.right y r2 h2.left) (h2.right x r1 h1.left)
 
+omit [ProperSpace E] in
 /-- The center of a minimal bounding sphere is unique.
 Thus the minimal bounding sphere is unique. -/
-theorem center_eq_center_of_IsMinimal
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    (h0 : X.Nonempty)
-    {x r1 y r2} (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : x = y := by
+theorem center_eq_center_of_IsMinimal (h0 : X.Nonempty) {x r1 y r2}
+    (h1 : IsMinimal X x r1) (h2 : IsMinimal X y r2) : x = y := by
   have h := radius_eq_radius_of_IsMinimal h1 h2
   subst h
   let s0 := h0.choose
@@ -471,13 +490,6 @@ theorem center_eq_center_of_IsMinimal
   replace : dist x y = 0 := by linarith only [this]
   simpa [dist_eq_zero] using this
 
-end
-
-section
-variable {α} {X : Set α}
-variable [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-variable [Inhabited α] [ProperSpace α]
-
 /-- Translating a bounded set `X` by `a`
 translates the center of its minimal bounding sphere by `a`. -/
 theorem center_image_add_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
@@ -505,15 +517,9 @@ theorem center_image_sub_right (h1 : IsBounded X) (h2 : X.Nonempty) a :
     center ((· - a) '' X) = center X - a := by
   simpa [sub_eq_add_neg] using center_image_add_right h1 h2 (-a)
 
-end
-
-section
-variable {α} {X : Set α}
-
 /-- The radius of the minimal bounding sphere of a bounded set `X` with at least two points
 is strictly positive. -/
-theorem radius_pos [MetricSpace α] [Inhabited α] [ProperSpace α]
-    (h1 : IsBounded X) (h2 : X.encard ≥ 2) : radius X > 0 := by
+theorem radius_pos (h1 : IsBounded X) (h2 : X.encard ≥ 2) : radius X > 0 := by
   obtain ⟨x0, hx0, x1, hx1, h3⟩ : ∃ x0 ∈ X, ∃ x1 ∈ X, x0 ≠ x1 := by
     have f : Fin 2 ↪ X := by
       by_cases h3 : X.Finite
@@ -543,11 +549,8 @@ theorem radius_pos [MetricSpace α] [Inhabited α] [ProperSpace α]
     _ > 0 / 2 := by gcongr 1; exact dist_pos.mpr h3
     _ = 0 := by simp
 
-
 /-- The minimal bounding sphere of a finite set `X` hits some point in `X`. -/
-theorem nonempty_sphere_of_finite
-    [PseudoMetricSpace α] [Inhabited α] [ProperSpace α]
-    (h1 : X.Finite) (h2 : X.Nonempty) :
+theorem nonempty_sphere_of_finite (h1 : X.Finite) (h2 : X.Nonempty) :
     (X ∩ sphere (center X) (radius X)).Nonempty := by
   have hc := subset h1.isBounded
   set c := center X
@@ -564,12 +567,44 @@ theorem nonempty_sphere_of_finite
   have h5 : y0 ∈ X ∩ sphere c r := by simp [sphere, hy0, hy0', h2]
   use y0
 
+end BoundingSphere
+
+
+
+/-
+Copyright (c) 2025 Julien Michel. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Julien Michel
+-/
+
+/-!
+
+# Upper bounds on the radius of the minimal bounding sphere
+
+In this file we prove some upper bounds on the radius of the minimal bounding sphere
+of a nonempty bounded set in a proper inner product space.
+
+## Main results
+- `BoundingSphere.center_mem_convexHull_sphere_of_finite`:
+  The center of the minimal bounding sphere of a non empty finite set `X`
+  is contained in the convex hull of the points of `X` that lie on the sphere.
+- `BoundingSphere.radius_le_sqrt_of_finite`:
+  An upper bound on the radius of the minimal bounding sphere of a finite set.
+- `BoundingSphere.radius_le_sqrt_of_isBounded`:
+  An upper bound on the radius of the minimal bounding sphere of a bounded set.
+  This result was originally proved by H. Jung in 1901.
+
+-/
+
+namespace BoundingSphere
+open Bornology ENNReal Metric InnerProductSpace Finset Module
+
+variable {E} {X : Set E}
+variable [NormedAddCommGroup E] [InnerProductSpace ℝ E] [ProperSpace E]
+
 /-- The center of the minimal bounding sphere of a non empty finite set `X`
 is contained in the convex hull of the points of `X` that lie on the sphere. -/
-theorem center_mem_convexHull_sphere_of_finite
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    [Inhabited α] [ProperSpace α]
-    (hX1 : X.Finite) (hX2 : X.Nonempty) :
+theorem center_mem_convexHull_sphere_of_finite (hX1 : X.Finite) (hX2 : X.Nonempty) :
     center X ∈ convexHull ℝ (X ∩ sphere (center X) (radius X)) := by
   set c := center X
   set r := radius X
@@ -581,8 +616,8 @@ theorem center_mem_convexHull_sphere_of_finite
   -- By contradiction, assume that the center `c` is not in the convex hull of `Y`
   by_contra! h1
   -- There exists a vector `v` separating `c` from the convex hull of `Y`
-  obtain ⟨v, hv, h2⟩ : ∃ v : α, v ≠ 0 ∧ ∀ x ∈ convexHull ℝ Y, ⟪v, x - c⟫_ℝ > 0 := by
-    set s : Set α := {0}
+  obtain ⟨v, hv, h2⟩ : ∃ v, v ≠ 0 ∧ ∀ x ∈ convexHull ℝ Y, ⟪v, x - c⟫_ℝ > 0 := by
+    set s : Set E := {0}
     have hs1 : Convex ℝ s := convex_singleton _
     have hs2 : IsCompact s := isCompact_singleton
     set t := (· - c) '' convexHull ℝ Y
@@ -604,8 +639,8 @@ theorem center_mem_convexHull_sphere_of_finite
       simpa using h1.symm
     obtain ⟨f, u, w, hu, huw, hw⟩ := geometric_hahn_banach_compact_closed hs1 hs2 ht1 ht3 hst
     replace hu : u > 0 := by simpa [s] using hu
-    let v := (InnerProductSpace.toDual ℝ α).symm f
-    have hf (x : α) : f x = ⟪v, x⟫_ℝ := by simp [v]
+    let v := (InnerProductSpace.toDual ℝ E).symm f
+    have hf x : f x = ⟪v, x⟫_ℝ := by simp [v]
     refine ⟨v, ?_, ?_⟩
     · by_contra! hv
       specialize hw ht5.choose ht5.choose_spec
@@ -736,9 +771,7 @@ theorem center_mem_convexHull_sphere_of_finite
 
 /-- A finite set with at least two points has at least two points on the boundary
 of its minimal bounding sphere. -/
-theorem encard_sphere_ge_two_of_finite
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α]
-    (hX1 : X.encard ≥ 2) (hX2 : X.Finite) :
+theorem encard_sphere_ge_two_of_finite (hX1 : X.encard ≥ 2) (hX2 : X.Finite) :
     (X ∩ sphere (center X) (radius X)).encard ≥ 2 := by
   have hX3 := hX2.isBounded
   have hX4 : X.Nonempty := by
@@ -776,11 +809,8 @@ theorem encard_sphere_ge_two_of_finite
     linarith only [h2, h3]
   · exact hY2
 
-open Finset in
 /-- An upper bound on the radius of the minimal bounding sphere of a finite set. -/
-theorem radius_le_sqrt_of_finite
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α] [Inhabited α] [ProperSpace α] [DecidableEq α]
-    {d : ℕ} (hX1 : X.Finite) (hXd : X.ncard ≤ d + 1) :
+theorem radius_le_sqrt_of_finite [DecidableEq E] {d : ℕ} (hX1 : X.Finite) (hXd : X.ncard ≤ d + 1) :
     radius X ≤ √(d / (2 * d + 2) : ℝ) * diam X := by
   -- Handle cases where `X` has 0 or 1 point first to avoid later divisions by a diameter of zero.
   obtain hX2 | hX2 | hX2 : X.ncard = 0 ∨ X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
@@ -820,7 +850,7 @@ theorem radius_le_sqrt_of_finite
       _ ≤ diam X := dist_le_diam_of_mem hX1.isBounded x0.2 x1.2
   -- Denote `Y` the points of `X` that lie on the sphere, and let `n` be their number.
   set r := radius X
-  have hY0 := Fintype.ofFinite (X ∩ sphere 0 r : Set α)
+  have hY0 := Fintype.ofFinite (X ∩ sphere 0 r : Set E)
   let Y := (X ∩ sphere 0 r).toFinset
   have hY1 : Y.Nonempty := by simpa [Y, hc] using nonempty_sphere_of_finite hX1 hX3
   have hY2 : Y ⊆ X.toFinset := by simp [Y]
@@ -835,7 +865,7 @@ theorem radius_le_sqrt_of_finite
     simpa [Y, hc] using center_mem_convexHull_sphere_of_finite hX1 hX3
   obtain ⟨l, hl1, hl2, hl3⟩ := mem_convexHull'.mp hcY
   -- First, derive a lower bound on `1 - l xi` for `xi ∈ Y`.
-  have ineq (xi : α) (hi : xi ∈ Y) := calc
+  have ineq xi (hi : xi ∈ Y) := calc
     1 - l xi = ∑ xk ∈ Y, l xk - l xi := by rw [hl2]
     _ = ∑ xk ∈ Y \ {xi}, l xk + l xi - l xi := by simp [←sum_sdiff (singleton_subset_iff.mpr hi)]
     _ = ∑ xk ∈ Y \ {xi}, l xk * 1 := by ring_nf
@@ -859,22 +889,22 @@ theorem radius_le_sqrt_of_finite
       congr! 2 with xk hk
       rw [norm_sub_sq_real]
       ring
-    _ = (1 / diam X ^ 2) * (
-          ∑ xk ∈ Y, l xk * ‖xk‖ ^ 2 + ∑ xk ∈ Y, l xk * ‖xi‖ ^ 2 -
+    _ = (1 / diam X ^ 2) *
+          (∑ xk ∈ Y, l xk * ‖xk‖ ^ 2 + ∑ xk ∈ Y, l xk * ‖xi‖ ^ 2 -
           2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
       congr 1
       conv_lhs => rw [sum_sub_distrib, sum_add_distrib]
       congr 2
       rw [mul_sum]
-    _ = (1 / diam X ^ 2) * (
-          ∑ xk ∈ Y, l xk * r ^ 2 + ∑ xk ∈ Y, l xk * r ^ 2 - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
+    _ = (1 / diam X ^ 2) *
+          (∑ xk ∈ Y, l xk * r ^ 2 + ∑ xk ∈ Y, l xk * r ^ 2 - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
       congr! 6 with xk hk
       · simp [Y] at hk
         simp [hk]
       · simp [Y] at hi
         simp [hi]
-    _ = (1 / diam X ^ 2) * (
-          r ^ 2 * ∑ xk ∈ Y, l xk + r ^ 2 * ∑ xk ∈ Y, l xk - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
+    _ = (1 / diam X ^ 2) *
+          (r ^ 2 * ∑ xk ∈ Y, l xk + r ^ 2 * ∑ xk ∈ Y, l xk - 2 * ∑ xk ∈ Y, l xk * ⟪xk, xi⟫_ℝ) := by
       congr 3
       all_goals
       · rw [mul_sum]
@@ -919,21 +949,16 @@ theorem radius_le_sqrt_of_finite
       rify at this
       nlinarith only [this]
 
-open Finset in
 /-- Jung's theorem. An upper bound on the radius of the minimal bounding sphere of a bounded set. -/
-theorem radius_le_sqrt_of_isBounded
-    [NormedAddCommGroup α] [InnerProductSpace ℝ α]
-    [Inhabited α] [ProperSpace α] [DecidableEq α]
-    [FiniteDimensional ℝ α]
-    (hX1 : IsBounded X) :
-    radius X ≤ (√(Module.finrank ℝ α / (2 * Module.finrank ℝ α + 2) : ℝ) * diam X) := by
-  set d := Module.finrank ℝ α
+theorem radius_le_sqrt_of_isBounded [DecidableEq E] [FiniteDimensional ℝ E] (hX1 : IsBounded X) :
+    radius X ≤ (√(finrank ℝ E / (2 * finrank ℝ E + 2) : ℝ) * diam X) := by
+  set d := finrank ℝ E
   obtain hX2 | hX2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
   · apply radius_le_sqrt_of_finite (Set.finite_of_encard_le_coe hX2)
     apply ENat.coe_le_coe.mp
     convert hX2 using 1
     simp [Set.ncard, Set.finite_of_encard_le_coe hX2]
-  · let f (x : α) := closedBall x (√(d / (2 * d + 2) : ℝ) * diam X)
+  · let f (x : E) := closedBall x (√(d / (2 * d + 2) : ℝ) * diam X)
     let F (x : X) := f x.val
     suffices (⋂ i, F i).Nonempty by
       refine radius_le hX1 ?_ this.choose _ ?_
@@ -967,5 +992,4 @@ theorem radius_le_sqrt_of_isBounded
       gcongr 1
       exact diam_mono hK3 hX1
 
-end
 end BoundingSphere
