@@ -24,7 +24,7 @@ variable [PseudoMetricSpace α] {X : Set α}
 
 /-- The supremal distance from a point `c` to a set `X`,
 which is equal to `⊤` if `X` is unbounded. -/
-noncomputable def supEDist {α} [EDist α] (X : Set α) c := sSup {edist s c | s ∈ X}
+noncomputable def supEDist {α} [EDist α] (X : Set α) c := sSup {edist x c | x ∈ X}
 
 /-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
 theorem supEDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
@@ -39,12 +39,12 @@ theorem supEDist_mem_of_isFinite (h1 : X.Finite) (h2 : X.Nonempty) c :
 
 /-- The supremal distance from `X` to `c` is greater than or equal to
 the distance from any point in `X` to `c`. -/
-theorem edist_le_supEDist c {y} (hy : y ∈ X) : edist y c ≤ supEDist X c := by
+theorem edist_le_supEDist c {x} (hy : x ∈ X) : edist x c ≤ supEDist X c := by
   unfold supEDist
   rw [le_sSup_iff]
   intro b hb
   simp [upperBounds] at hb
-  exact hb y hy
+  exact hb x hy
 
 /-- If `X` is bounded, then the supremal distance from `X` to `c` is not `⊤`. -/
 theorem supEDist_ne_top_of_isBounded (h1 : IsBounded X) c : supEDist X c ≠ ⊤ := by
@@ -125,7 +125,7 @@ the supremal distance from a point to a set, as a real number.
 which is equal to `0` if `X` is unbounded. -/
 noncomputable def supDist (X : Set α) c := (supEDist X c).toReal
 
-theorem supDist_eq c : supDist X c = sSup {dist s c | s ∈ X} := by
+theorem supDist_eq c : supDist X c = sSup {dist x c | x ∈ X} := by
   unfold supDist supEDist
   rw [toReal_sSup]
   · congr 1
@@ -156,10 +156,10 @@ theorem supDist_mem_of_isCompact (h1 : IsCompact X) (h2 : X.Nonempty) c :
 theorem supDist_mem_of_isFinite c (h1 : X.Finite) (h2 : X.Nonempty) :
     supDist X c ∈ (dist · c) '' X := supDist_mem_of_isCompact h1.isCompact h2 _
 
-theorem dist_le_supDist (h1 : IsBounded X) c {y} (hy : y ∈ X) : dist y c ≤ supDist X c := by
+theorem dist_le_supDist (h1 : IsBounded X) c {x} (hy : x ∈ X) : dist x c ≤ supDist X c := by
   unfold supDist
   apply (edist_le_ofReal (by simp)).mp
-  change edist y c ≤ ENNReal.ofReal (supDist X c)
+  change edist x c ≤ ENNReal.ofReal (supDist X c)
   rw [←supEDist_eq_supDist_of_isBounded h1 c]
   apply edist_le_supEDist c hy
 
