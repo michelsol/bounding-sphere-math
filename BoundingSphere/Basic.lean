@@ -22,8 +22,7 @@ section
 open Bornology ENNReal Metric
 variable [PseudoMetricSpace α] {X : Set α}
 
-/-- The supremal distance from a point `c` to a set `X`,
-which is equal to `⊤` if `X` is unbounded. -/
+/-- The supremal distance from a point `c` to a set `X`, equal to `⊤` if `X` is unbounded. -/
 noncomputable def supEDist {α} [EDist α] (X : Set α) c := sSup {edist x c | x ∈ X}
 
 /-- If `X` is compact, then the supremal distance from `X` to `c` is attained. -/
@@ -192,7 +191,6 @@ In this file we develop a basic theory of minimal bounding spheres in a
 real inner product space where closed balls are compact.
 In such a space, the minimal bounding sphere of a nonempty bounded set exists and is unique.
 Most results are about the radius and center of the sphere, rather than the sphere itself.
-TODO: Check if the setting can be generalized.
 
 ## Main definitions
 
@@ -207,6 +205,10 @@ TODO: Check if the setting can be generalized.
 - `BoundingSphere.subset`: The minimal bounding sphere contains the set.
 - `BoundingSphere.radius_eq_radius_of_IsMinimal` and
   `BoundingSphere.center_eq_center_of_IsMinimal`: Uniqueness of the minimal bounding sphere.
+
+## TODO
+Check if the setting can be generalized.
+
 -/
 
 namespace BoundingSphere
