@@ -9,11 +9,23 @@ import Mathlib.Topology.MetricSpace.IsometricSMul
 import Mathlib.Tactic.Finiteness
 
 /-!
-# Supremal extended distance to a set
+# Supremal distance to a set
 
+This file defines and studies the supremal distance in pseudo (extended) metric spaces.
+Given a point `x` and a set `s` in a metric space, the supremal distance from `x` to `s` is
+defined as the supremum of the distances from `x` to the points in `s`.
+This quantity can be infinite in emetric spaces.
+
+## Main definitions
+
+- `EMetric.supEdist` : the supremal extended distance from a point to a set.
+- `Metric.supDist` : the supremal distance from a point to a set.
 
 ## Main results
 
+- `EMetric.supEdit_mem_of_isCompact` : in a compact set, the supremal extended distance is attained.
+- `EMetric.continuous_supEdist` : the supremal extended distance depends continuously on the point.
+- versions of these notions in metric spaces.
 
 ## Tags
 metric space
