@@ -244,9 +244,10 @@ theorem encard_sphere_ge_two_of_finite (hX1 : X.encard ≥ 2) (hX2 : X.Finite) :
   · exact hY2
 
 /-- An upper bound on the radius of the minimal bounding sphere of a finite set. -/
-theorem radius_le_sqrt_of_finite [DecidableEq V] {d : ℕ} (hX1 : X.Finite) (hXd : X.ncard ≤ d + 1) :
+theorem radius_le_sqrt_of_finite {d : ℕ} (hX1 : X.Finite) (hXd : X.ncard ≤ d + 1) :
     radius X ≤ √(d / (2 * d + 2) : ℝ) * diam X := by
   -- Handle cases where `X` has 0 or 1 point first to avoid later divisions by a diameter of zero.
+  classical
   obtain hX2 | hX2 | hX2 : X.ncard = 0 ∨ X.ncard = 1 ∨ X.ncard ≥ 2 := by omega
   · rw [Set.ncard_eq_zero hX1] at hX2
     simp [hX2]
@@ -376,7 +377,7 @@ theorem radius_le_sqrt_of_finite [DecidableEq V] {d : ℕ} (hX1 : X.Finite) (hXd
       nlinarith only [this]
 
 /-- Jung's theorem. An upper bound on the radius of the minimal bounding sphere of a bounded set. -/
-theorem radius_le_sqrt_of_isBounded [DecidableEq V] (hX1 : IsBounded X) :
+theorem radius_le_sqrt_of_isBounded (hX1 : IsBounded X) :
     radius X ≤ (√(finrank ℝ V / (2 * finrank ℝ V + 2) : ℝ) * diam X) := by
   set d := finrank ℝ V
   obtain hX2 | hX2 : X.encard ≤ d + 1 ∨ X.encard ≥ d + 1 := by apply le_total
