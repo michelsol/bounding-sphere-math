@@ -65,7 +65,7 @@ theorem center_mem_convexHull_sphere_of_finite (hX1 : X.Finite) (hX2 : X.Nonempt
     have ht4 : Y.Nonempty := nonempty_sphere_of_finite hX1 hX2
     have ht5 : t.Nonempty := Set.image_nonempty.mpr ht4.convexHull
     have hst : Disjoint s t := by
-      simp [s, t]
+      simp only [Set.disjoint_singleton_left, Set.mem_image, not_exists, not_and, s, t]
       intro x hx
       contrapose! h1
       convert hx using 1
@@ -129,7 +129,8 @@ theorem center_mem_convexHull_sphere_of_finite (hX1 : X.Finite) (hX2 : X.Nonempt
   obtain ⟨δZ, hδZ, hcZ⟩ : ∃ δZ > 0, ∀ ε, ε > 0 → ε < δZ → ∀ x ∈ Z, ‖x - c' ε‖ ^ 2 < r ^ 2 := by
     have hZ0 := Fintype.ofFinite Z
     by_cases hZ1 : Z = ∅
-    · simp [hZ1]; use 1; norm_num
+    · use 1
+      simp [hZ1]
     replace hZ1 := Set.toFinset_nonempty.mpr (Set.nonempty_iff_ne_empty.mpr hZ1)
     let f ε := Z.toFinset.sup' hZ1 (fun x => ‖x - c' ε‖ ^ 2)
     have hf : Continuous f := by apply Continuous.finset_sup'_apply; fun_prop
