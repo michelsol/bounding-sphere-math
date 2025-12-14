@@ -129,7 +129,7 @@ theorem supEdist_ne_top_of_isBounded {α} [PseudoMetricSpace α] {s : Set α} (h
   subst ht2
   rw [edist_comm]
   apply le_trans (edist_triangle t t0 x)
-  exact add_le_add_right (edist_le_diam_of_mem ht1 h2.choose_spec) (edist t0 x)
+  exact add_le_add_left (edist_le_diam_of_mem ht1 h2.choose_spec) (edist t0 x)
 
 theorem supEdist_eq_top_of_not_isBounded {α} [PseudoMetricSpace α]
     {s : Set α} (h1 : ¬IsBounded s) x : supEdist x s = ⊤ := by
